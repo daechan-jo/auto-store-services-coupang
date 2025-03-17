@@ -1,0 +1,53 @@
+{
+	"name": "coupang",
+	"version": "1.0.0",
+	"description": "",
+	"author": "daechan-jo",
+	"private": true,
+	"license": "UNLICENSED",
+	"scripts": {
+		"build": "nest build",
+		"start": "nest build --webpack --webpackPath webpack-hmr.config.cjs",
+		"start:dev": "nest build --webpack --webpackPath webpack-hmr.config.cjs --watch",
+		"start:debug": "nest start --debug --watch",
+		"start:prod": "node dist/main",
+		"start:pm2": "pm2 start dist/services/coupang/src/main.js --name coupang --env production",
+		"test": "jest",
+		"test:watch": "jest --watch",
+		"test:cov": "jest --coverage",
+		"test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
+		"test:e2e": "jest --config ./test/jest-e2e.json"
+	},
+	"dependencies": {
+		"@daechanjo/playwright": "^1.1.2",
+		"@daechanjo/rabbitmq": "^1.0.0",
+		"@eslint/eslintrc": "^3.3.0",
+		"@nestjs/bull": "^11.0.2",
+		"@typescript-eslint/eslint-plugin": "^8.26.1",
+		"@typescript-eslint/parser": "^8.26.1",
+		"axios": "^1.8.3",
+		"eslint-plugin-import": "^2.31.0",
+		"eslint-plugin-prettier": "^5.2.3",
+		"globals": "^16.0.0",
+		"prettier": "^3.5.3",
+		"typeorm-transactional": "^0.5.0",
+		"webpack-node-externals": "^3.0.0"
+	},
+	"jest": {
+		"moduleFileExtensions": [
+			"js",
+			"json",
+			"ts"
+		],
+		"rootDir": "src",
+		"testRegex": ".*\\.spec\\.ts$",
+		"transform": {
+			"^.+\\.(t|j)s$": "ts-jest"
+		},
+		"collectCoverageFrom": [
+			"**/*.(t|j)s"
+		],
+		"coverageDirectory": "../coverage",
+		"testEnvironment": "node"
+	}
+}
