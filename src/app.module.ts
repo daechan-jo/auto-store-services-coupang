@@ -4,7 +4,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { Module, OnApplicationBootstrap, OnModuleInit } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { RedisModule } from '@nestjs-modules/ioredis';
-import { BullModule } from '@nestjs/bull';
+import { BullModule, InjectQueue } from '@nestjs/bull';
 
 import { TypeormConfig } from './config/typeorm.config';
 import { CoupangProduct } from './infrastructure/entities/coupangProduct.entity';
@@ -14,6 +14,8 @@ import { CoupangSignatureService } from './core/coupang.signature.service';
 import { CoupangCrawlerService } from './core/coupang.crawler.service';
 import { MessageQueueProcessor } from './core/coupang.queue.processor';
 import { CoupangApiService } from './core/coupang.api.service';
+import { CoupangRepository } from './infrastructure/repository/coupang.repository';
+import { Queue } from 'bull';
 
 @Module({
   imports: [
@@ -60,7 +62,10 @@ import { CoupangApiService } from './core/coupang.api.service';
   ],
 })
 export class AppModule implements OnApplicationBootstrap, OnModuleInit {
-  constructor(private readonly playwrightService: PlaywrightService) {}
+  constructor(
+    @InjectQueue('coupang-message-queue') private readonly queue: Queue,
+    private readonly playwrightService: PlaywrightService,
+  ) {}
 
   async onApplicationBootstrap() {
     setTimeout(async () => {
@@ -68,5 +73,11 @@ export class AppModule implements OnApplicationBootstrap, OnModuleInit {
     });
   }
 
-  async onModuleInit() {}
+  async onModuleInit() {
+    await this.queue.clean(0, 'delayed'); // 지연된 작업 제거
+    await this.queue.clean(0, 'wait'); // 대기 중인 작업 제거
+    await this.queue.clean(0, 'active'); // 활성 작업 제거
+    await this.queue.empty(); // 모든 대기 중인 작업 제거 (옵션)
+    console.log('Bull 대기열 정리 완료');
+  }
 }

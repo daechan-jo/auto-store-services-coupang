@@ -31,7 +31,8 @@
 		"globals": "^16.0.0",
 		"prettier": "^3.5.3",
 		"typeorm-transactional": "^0.5.0",
-		"webpack-node-externals": "^3.0.0"
+		"webpack-node-externals": "^3.0.0",
+		"xlsx": "^0.18.5"
 	},
 	"jest": {
 		"moduleFileExtensions": [

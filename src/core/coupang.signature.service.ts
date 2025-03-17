@@ -10,9 +10,9 @@ export class CoupangSignatureService {
   private readonly vendorId: string;
 
   constructor(private readonly configService: ConfigService) {
-    this.secretKey = this.configService.get<string>('L_COUPANG_SECRET_KEY')!;
-    this.accessKey = this.configService.get<string>('L_COUPANG_ACCESS_KEY')!;
-    this.vendorId = this.configService.get<string>('L_COUPANG_VENDOR_ID')!;
+    this.secretKey = this.configService.get<string>('COUPANG_SECRET_KEY')!;
+    this.accessKey = this.configService.get<string>('COUPANG_ACCESS_KEY')!;
+    this.vendorId = this.configService.get<string>('COUPANG_VENDOR_ID')!;
   }
 
   async createHmacSignature(
@@ -22,7 +22,7 @@ export class CoupangSignatureService {
     useQuery: boolean = true,
   ) {
     const datetime =
-      new Date().toISOString().substr(2, 17).replace(/:/gi, '').replace(/-/gi, '') + 'Z';
+      new Date().toISOString().slice(2, 19).replace(/:/gi, '').replace(/-/gi, '') + 'Z';
 
     const query = useQuery
       ? new URLSearchParams({
@@ -44,7 +44,7 @@ export class CoupangSignatureService {
 
   async createParamHmacSignature(method: string, path: string, params: Record<string, any>) {
     const datetime =
-      new Date().toISOString().substr(2, 17).replace(/:/gi, '').replace(/-/gi, '') + 'Z';
+      new Date().toISOString().slice(2, 19).replace(/:/gi, '').replace(/-/gi, '') + 'Z';
 
     const query = new URLSearchParams(params).toString(); // params로 queryString 생성
 

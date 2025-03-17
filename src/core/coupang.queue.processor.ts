@@ -3,6 +3,7 @@ import { Injectable } from '@nestjs/common';
 import { Job } from 'bull';
 
 import { CoupangCrawlerService } from './coupang.crawler.service';
+import { CronType } from '../../../../models/types/cron.type';
 
 @Processor('coupang-message-queue') // 큐 이름
 @Injectable()

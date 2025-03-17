@@ -1,16 +1,15 @@
 import * as path from 'path';
 
-import { CommonService } from '@daechanjo/common-utils';
-import { RabbitMQService } from '@daechanjo/rabbitmq-utils';
+import { RabbitMQService } from '@daechanjo/rabbitmq';
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
 import * as XLSX from 'xlsx';
+import { CronType } from '../../../../models/types/cron.type';
 
 import { CoupangApiService } from './coupang.api.service';
 import { CoupangSignatureService } from './coupang.signature.service';
-import { CronType } from '../../types/enum.type';
-import { CoupangRepository } from '../infrastructure/coupang.repository';
+import { CoupangRepository } from '../infrastructure/repository/coupang.repository';
 
 @Injectable()
 export class CoupangService {
@@ -19,7 +18,6 @@ export class CoupangService {
     private readonly signatureService: CoupangSignatureService,
     private readonly coupangRepository: CoupangRepository,
     private readonly rabbitmqService: RabbitMQService,
-    private readonly commonService: CommonService,
     private readonly coupangApiService: CoupangApiService,
   ) {}
 
@@ -207,7 +205,7 @@ export class CoupangService {
           smartStore: 'coupang',
         });
 
-        this.commonService.log(`${type}${cronId}: 엑셀 파일 전송 요청 완료`);
+        console.log(`${type}${cronId}: 엑셀 파일 전송 요청 완료`);
       } catch (error: any) {
         console.error(
           `${CronType.ERROR}${type}${cronId}: 메시지 전송 실패\n`,
@@ -216,7 +214,7 @@ export class CoupangService {
       }
     });
 
-    this.commonService.log(`${type}${cronId}: 상품 가격 업데이트 완료`);
+    console.log(`${type}${cronId}: 상품 가격 업데이트 완료`);
   }
 
   async shippingCostManagement(cronId: string, coupangProductDetails: any, type: string) {

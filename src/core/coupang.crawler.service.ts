@@ -1,31 +1,65 @@
-import { PuppeteerService } from '@daechanjo/puppeteer-utils';
 import { Injectable } from '@nestjs/common';
 
 import { CoupangApiService } from './coupang.api.service';
 import { CoupangService } from './coupang.service';
-import { CronType } from '../../types/enum.type';
-import { CoupangRepository } from '../infrastructure/coupang.repository';
+import { CoupangRepository } from '../infrastructure/repository/coupang.repository';
+import { PlaywrightService } from '@daechanjo/playwright';
+import { ConfigService } from '@nestjs/config';
+import { CronType } from '../../../../models/types/cron.type';
 
 @Injectable()
 export class CoupangCrawlerService {
   constructor(
-    private readonly puppeteerService: PuppeteerService,
+    private readonly playwrightService: PlaywrightService,
     private readonly coupangRepository: CoupangRepository,
     private readonly coupangService: CoupangService,
     private readonly coupangApiService: CoupangApiService,
+    private readonly configService: ConfigService,
   ) {}
 
-  async orderStatusUpdate(cronId: string, type: string) {
-    const coupangPage = await this.puppeteerService.loginToCoupangSite();
+  /**
+   * 쿠팡 윙에서 주문 상태를 업데이트하는 메서드
+   *
+   * @param cronId - 현재 실행 중인 크론 작업의 고유 식별자
+   * @param type - 로그 메시지에 포함될 작업 유형 식별자
+   *
+   * @returns {Promise<void>} - 작업 완료 후 반환되는 Promise
+   *
+   * @throws {Error} - Playwright 작업 중 발생하는 모든 오류
+   *
+   * @description
+   * 이 메서드는 다음 단계로 진행됩니다:
+   * 1. 쿠팡 윙 관리자 사이트에 로그인 (playwrightService 사용)
+   * 2. 배송 관리 페이지로 이동
+   * 3. 결제 완료된 상품 체크박스 선택
+   * 4. 주문 확인 버튼 클릭
+   * 5. 배송사 선택 (CJ 대한통운)
+   * 6. 상세 사유 입력
+   * 7. 확인 및 다운로드 버튼 클릭
+   * 8. 작업 완료 후 Playwright 컨텍스트 리소스 해제
+   *
+   * 크롤링 과정에서 오류가 발생하면 에러 로그를 남기고 처리를 계속합니다.
+   * 마지막에 컨텍스트 리소스를 확실히 해제하여 메모리 누수를 방지합니다.
+   */
+  async orderStatusUpdate(cronId: string, type: string): Promise<void> {
+    const store = this.configService.get<string>('STORE');
+    const contextId = `context-${store}-${cronId}`;
+    const pageId = `page-${store}-${cronId}`;
+
+    const coupangPage = await this.playwrightService.loginToCoupangSite(contextId, pageId);
 
     await coupangPage.goto('https://wing.coupang.com/tenants/sfl-portal/delivery/management', {
       timeout: 0,
     });
 
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    await coupangPage.waitForLoadState('networkidle');
 
     const checkboxSelector =
       '.search-table tbody span[data-wuic-props="name:check"] input[type="checkbox"]';
+
+    await coupangPage
+      .waitForSelector(checkboxSelector, { state: 'attached', timeout: 10000 })
+      .catch(() => console.log(`${type}${cronId}: 체크박스 요소를 찾을 수 없습니다.`));
 
     const checkboxes = await coupangPage.$$(checkboxSelector);
 
@@ -34,30 +68,37 @@ export class CoupangCrawlerService {
       return;
     }
 
-    // 각 체크박스를 순회하며 클릭
     for (const checkbox of checkboxes) {
-      const isDisabled = await checkbox.evaluate((el) => el.disabled);
+      // disabled 속성 확인 (Playwright 방식으로 수정)
+      const isDisabled = await checkbox.isDisabled();
+
       if (isDisabled) {
-        await checkbox.evaluate((el) => el.removeAttribute('disabled'));
+        // disabled 속성 제거 (Playwright에서는 evaluateHandle 사용)
+        await coupangPage.evaluateHandle((el) => {
+          el.removeAttribute('disabled');
+        }, checkbox);
       }
 
-      // 체크박스 클릭
-      await checkbox.evaluate((el) => el.click());
+      // 체크박스 클릭 (Playwright 방식으로 수정)
+      await checkbox.click({ force: true });
     }
+
     // 주문 확인 버튼 클릭
     const confirmOrderButtonSelector = '#confirmOrder'; // 버튼 ID로 선택
-    await coupangPage.waitForSelector(confirmOrderButtonSelector); // 버튼 요소 기다리기
+    await coupangPage.waitForSelector(confirmOrderButtonSelector, { state: 'visible' }); // 버튼 요소 기다리기
     await coupangPage.click(confirmOrderButtonSelector);
 
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    await coupangPage.waitForLoadState('networkidle');
 
-    // 2. `select` 태그 선택 및 값 변경
-    await coupangPage.waitForSelector('select[data-v-305197cb]');
-    await coupangPage.select('select[data-v-305197cb]', 'CJGLS'); // CJ 대한통운 선택
+    // select 태그 선택 및 값 변경
+    const selectSelector = 'select[data-v-305197cb]';
+    await coupangPage.waitForSelector(selectSelector, { state: 'visible' });
+    await coupangPage.selectOption(selectSelector, 'CJGLS'); // CJ 대한통운 선택
 
-    // 3. `textarea`에 텍스트 입력
-    await coupangPage.waitForSelector('textarea[placeholder="Enter reason in detail"]');
-    await coupangPage.type('textarea[placeholder="Enter reason in detail"]', '상품을 준비합니다');
+    // textarea에 텍스트 입력
+    const textareaSelector = 'textarea[placeholder="Enter reason in detail"]';
+    await coupangPage.waitForSelector(textareaSelector, { state: 'visible' });
+    await coupangPage.fill(textareaSelector, '상품을 준비합니다');
 
     // 4. `Download` 버튼 클릭
     const downloadButtonSelector =
@@ -72,13 +113,13 @@ export class CoupangCrawlerService {
       }
     }, downloadButtonSelector);
 
-    await this.puppeteerService.closeAllPages();
+    await this.playwrightService.releaseContext(contextId);
   }
 
   async invoiceUpload(cronId: string, updatedOrders: any[], type: string) {
     console.log(`${type}${cronId}: 송장업로드 시작`);
 
-    const coupangPage = await this.puppeteerService.loginToCoupangSite();
+    const coupangPage = await this.playwrightService.loginToCoupangSite();
     await coupangPage.goto('https://wing.coupang.com/tenants/sfl-portal/delivery/management', {
       timeout: 0,
     });
@@ -240,7 +281,7 @@ export class CoupangCrawlerService {
         results.push(result);
       }
     } finally {
-      await this.puppeteerService.closeAllPages();
+      await this.playwrightService.closeAllPages();
     }
 
     return results;
@@ -249,7 +290,7 @@ export class CoupangCrawlerService {
   async crawlCoupangDetailProducts(cronId: string, type: string) {
     console.log(`${type}${cronId}: 쿠팡 크롤링 시작...`);
 
-    const coupangPage = await this.puppeteerService.loginToCoupangSite();
+    const coupangPage = await this.playwrightService.loginToCoupangSite();
 
     let isLastPage = false;
     let currentPage = 1;
@@ -322,11 +363,11 @@ export class CoupangCrawlerService {
     } finally {
       console.log(`${type}${cronId}: 쿠팡 크롤링 종료`);
     }
-    await this.puppeteerService.closeAllPages();
+    await this.playwrightService.closeAllPages();
   }
 
   async deleteConfirmedCoupangProduct(cronId: string, type: string) {
-    const coupangPage = await this.puppeteerService.loginToCoupangSite();
+    const coupangPage = await this.playwrightService.loginToCoupangSite();
 
     // 쿠팡 페이지에서 상품 코드 추출
     await coupangPage.goto(
@@ -343,7 +384,7 @@ export class CoupangCrawlerService {
         `${type}${cronId}: 새로운 컨펌 상품이 없습니다\n`,
         error.response?.data || error.message,
       );
-      await this.puppeteerService.closeAllPages();
+      await this.playwrightService.closeAllPages();
       return;
     }
 
@@ -356,7 +397,7 @@ export class CoupangCrawlerService {
         })
         .filter((code) => code !== null);
     });
-    await this.puppeteerService.closeAllPages();
+    await this.playwrightService.closeAllPages();
 
     const coupangProducts = await this.coupangApiService.getProductListPaging(
       cronId,

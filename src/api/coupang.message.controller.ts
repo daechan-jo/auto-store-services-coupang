@@ -4,6 +4,7 @@ import { MessagePattern } from '@nestjs/microservices';
 import { Queue } from 'bull';
 import { CronType } from '../../../../models/types/cron.type';
 import { CoupangService } from '../core/coupang.service';
+import { CoupangApiService } from '../core/coupang.api.service';
 
 @Controller()
 export class CoupangMessageController {
