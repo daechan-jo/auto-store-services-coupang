@@ -1,21 +1,25 @@
 import { PlaywrightModule, PlaywrightService } from '@daechanjo/playwright';
 import { RabbitMQModule } from '@daechanjo/rabbitmq';
-import { ConfigModule, ConfigService } from '@nestjs/config';
+import { BullModule, InjectQueue } from '@nestjs/bull';
 import { Module, OnApplicationBootstrap, OnModuleInit } from '@nestjs/common';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { RedisModule } from '@nestjs-modules/ioredis';
-import { BullModule, InjectQueue } from '@nestjs/bull';
+import { Queue } from 'bull';
 
-import { TypeormConfig } from './config/typeorm.config';
-import { CoupangProduct } from './infrastructure/entities/coupangProduct.entity';
 import { CoupangMessageController } from './api/coupang.message.controller';
+import { TypeormConfig } from './config/typeorm.config';
+import { CoupangApiService } from './core/coupang.api.service';
+import { MessageQueueProcessor } from './core/coupang.queue.processor';
 import { CoupangService } from './core/coupang.service';
 import { CoupangSignatureService } from './core/coupang.signature.service';
-import { CoupangCrawlerService } from './core/coupang.crawler.service';
-import { MessageQueueProcessor } from './core/coupang.queue.processor';
-import { CoupangApiService } from './core/coupang.api.service';
+import { CoupangCrawlerService } from './core/crawler/coupang.crawler.service';
+import { CrawlCoupangDetailProductsProvider } from './core/crawler/provider/crawlCoupangDetailProducts.provider';
+import { DeleteConfirmedCoupangProductProvider } from './core/crawler/provider/deleteConfirmedCoupangProduct.provider';
+import { InvoiceUploaderProvider } from './core/crawler/provider/invoiceUploader.provider';
+import { OrderStatusUpdateProvider } from './core/crawler/provider/orderStatusUpdate.provider';
+import { CoupangProduct } from './infrastructure/entities/coupangProduct.entity';
 import { CoupangRepository } from './infrastructure/repository/coupang.repository';
-import { Queue } from 'bull';
 
 @Module({
   imports: [
@@ -59,6 +63,10 @@ import { Queue } from 'bull';
     CoupangRepository,
     MessageQueueProcessor,
     CoupangApiService,
+    OrderStatusUpdateProvider,
+    InvoiceUploaderProvider,
+    DeleteConfirmedCoupangProductProvider,
+    CrawlCoupangDetailProductsProvider,
   ],
 })
 export class AppModule implements OnApplicationBootstrap, OnModuleInit {

@@ -1,8 +1,8 @@
+import { CoupangOrderInfoInterface, CoupangProductInterface, CronType } from '@daechanjo/models';
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios, { AxiosResponse } from 'axios';
-import { CoupangOrderInfoInterface, CoupangProductInterface } from '../../../../models/interfaces';
-import { CronType } from '../../../../models/types/cron.type';
+
 import { CoupangSignatureService } from './coupang.signature.service';
 
 @Injectable()

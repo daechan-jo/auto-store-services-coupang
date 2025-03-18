@@ -1,10 +1,11 @@
+import { CronType } from '@daechanjo/models';
 import { InjectQueue } from '@nestjs/bull';
 import { Controller } from '@nestjs/common';
 import { MessagePattern } from '@nestjs/microservices';
 import { Queue } from 'bull';
-import { CronType } from '../../../../models/types/cron.type';
-import { CoupangService } from '../core/coupang.service';
+
 import { CoupangApiService } from '../core/coupang.api.service';
+import { CoupangService } from '../core/coupang.service';
 
 @Controller()
 export class CoupangMessageController {

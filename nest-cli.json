@@ -1,0 +1,7 @@
+{
+  "compilerOptions": {
+    "builder": "swc",
+    "typeCheck": true,
+    "webpack": false
+  }
+}

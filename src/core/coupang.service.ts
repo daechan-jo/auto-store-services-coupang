@@ -1,11 +1,11 @@
 import * as path from 'path';
 
+import { CronType } from '@daechanjo/models';
 import { RabbitMQService } from '@daechanjo/rabbitmq';
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
 import * as XLSX from 'xlsx';
-import { CronType } from '../../../../models/types/cron.type';
 
 import { CoupangApiService } from './coupang.api.service';
 import { CoupangSignatureService } from './coupang.signature.service';
