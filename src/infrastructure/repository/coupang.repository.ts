@@ -1,14 +1,15 @@
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { CoupangProduct } from '../entities/coupangProduct.entity';
+
+import { CoupangProductEntity } from '../entities/coupangProduct.entity';
 
 export class CoupangRepository {
   constructor(
-    @InjectRepository(CoupangProduct)
-    private readonly coupangRepository: Repository<CoupangProduct>,
+    @InjectRepository(CoupangProductEntity)
+    private readonly coupangRepository: Repository<CoupangProductEntity>,
   ) {}
 
-  async saveCoupangProductDetails(details: Partial<CoupangProduct>[]) {
+  async saveCoupangProductDetails(details: Partial<CoupangProductEntity>[]) {
     await this.coupangRepository.save(details);
   }
 

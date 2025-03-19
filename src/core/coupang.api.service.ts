@@ -1,4 +1,4 @@
-import { CoupangOrderInfoInterface, CoupangProductInterface, CronType } from '@daechanjo/models';
+import { CoupangOrderInfo, CoupangProduct, CronType } from '@daechanjo/models';
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios, { AxiosResponse } from 'axios';
@@ -18,7 +18,7 @@ export class CoupangApiService {
    * @param cronId - 현재 실행 중인 크론 작업의 고유 식별자
    * @param type - 로그 메시지에 포함될 작업 유형 식별자
    *
-   * @returns {Promise<CoupangProductInterface[]>} - 쿠팡 상품 객체 배열을 포함하는 Promise
+   * @returns {Promise<CoupangProduct[]>} - 쿠팡 상품 객체 배열을 포함하는 Promise
    *
    * @throws {Error} - API 요청 실패 시 발생하는 오류
    *
@@ -34,13 +34,13 @@ export class CoupangApiService {
    * 최대 재시도 횟수를 초과하면 예외를 발생시킵니다.
    * 페이지 진행 상황을 10페이지마다 로그로 기록합니다.
    */
-  async getProductListPaging(cronId: string, type: string): Promise<CoupangProductInterface[]> {
+  async getProductListPaging(cronId: string, type: string): Promise<CoupangProduct[]> {
     console.log(`${type}${cronId}: 쿠팡 전체상품 조회...`);
     const apiPath = '/v2/providers/seller_api/apis/api/v1/marketplace/seller-products';
 
     let nextToken = '';
     let pageCount = 0;
-    const allProducts: CoupangProductInterface[] = [];
+    const allProducts: CoupangProduct[] = [];
     const maxRetries = 3; // 최대 재시도 횟수
 
     try {
@@ -131,7 +131,7 @@ export class CoupangApiService {
    * @param type - 로그 메시지에 포함될 작업 유형 식별자
    * @param sellerProductId - 조회할 판매자 상품 ID
    *
-   * @returns {Promise<CoupangProductInterface>} - 상품 상세 정보를 포함하는 Promise
+   * @returns {Promise<CoupangProduct>} - 상품 상세 정보를 포함하는 Promise
    *
    * @throws {Error} - API 요청 실패 시 발생하는 오류
    *
@@ -149,7 +149,7 @@ export class CoupangApiService {
     cronId: string,
     type: string,
     sellerProductId: number,
-  ): Promise<CoupangProductInterface> {
+  ): Promise<CoupangProduct> {
     const apiPath = `/v2/providers/seller_api/apis/api/v1/marketplace/seller-products/${sellerProductId}`;
 
     const { authorization, datetime } = await this.signatureService.createHmacSignature(
@@ -189,7 +189,7 @@ export class CoupangApiService {
    * @param today - 조회 종료일 (YYYY-MM-DD 형식)
    * @param yesterday - 조회 시작일 (YYYY-MM-DD 형식)
    *
-   * @returns {Promise<CoupangOrderInfoInterface[]>} - 주문서 목록을 포함하는 Promise
+   * @returns {Promise<CoupangOrderInfo[]>} - 주문서 목록을 포함하는 Promise
    *
    * @throws {Error} - API 요청 실패 시 발생하는 오류
    *
@@ -210,7 +210,7 @@ export class CoupangApiService {
     vendorId: string,
     today: string,
     yesterday: string,
-  ): Promise<CoupangOrderInfoInterface[]> {
+  ): Promise<CoupangOrderInfo[]> {
     const apiPath = `/v2/providers/openapi/apis/api/v4/vendors/${vendorId}/ordersheets`;
 
     let nextToken = '';

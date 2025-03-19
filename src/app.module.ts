@@ -18,7 +18,7 @@ import { CrawlCoupangDetailProductsProvider } from './core/crawler/provider/craw
 import { DeleteConfirmedCoupangProductProvider } from './core/crawler/provider/deleteConfirmedCoupangProduct.provider';
 import { InvoiceUploaderProvider } from './core/crawler/provider/invoiceUploader.provider';
 import { OrderStatusUpdateProvider } from './core/crawler/provider/orderStatusUpdate.provider';
-import { CoupangProduct } from './infrastructure/entities/coupangProduct.entity';
+import { CoupangProductEntity } from './infrastructure/entities/coupangProduct.entity';
 import { CoupangRepository } from './infrastructure/repository/coupang.repository';
 
 @Module({
@@ -28,7 +28,7 @@ import { CoupangRepository } from './infrastructure/repository/coupang.repositor
       envFilePath: '/Users/daechanjo/codes/project/auto-store/.env',
     }),
     TypeOrmModule.forRootAsync(TypeormConfig),
-    TypeOrmModule.forFeature([CoupangProduct]),
+    TypeOrmModule.forFeature([CoupangProductEntity]),
     BullModule.registerQueueAsync({
       name: 'coupang-message-queue',
       useFactory: async (configService: ConfigService) => ({
@@ -77,7 +77,7 @@ export class AppModule implements OnApplicationBootstrap, OnModuleInit {
 
   async onApplicationBootstrap() {
     setTimeout(async () => {
-      await this.playwrightService.init(false, 'chromium');
+      await this.playwrightService.init(true, 'chromium');
     });
   }
 
