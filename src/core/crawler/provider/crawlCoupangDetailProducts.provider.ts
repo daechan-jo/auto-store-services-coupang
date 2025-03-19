@@ -1,3 +1,4 @@
+import { CoupangExtractDetail } from '@daechanjo/models';
 import { Injectable } from '@nestjs/common';
 import { Page } from 'playwright';
 
@@ -101,7 +102,7 @@ export class CrawlCoupangDetailProductsProvider {
    * 페이지 내의 모든 상품 행('tr.inventory-line')에서 필요한 정보를 추출합니다.
    * DOM에서 상품 ID, 코드, 가격, 배송비, 아이템 위너 상태 등의 정보를 파싱합니다.
    */
-  private async extractProductDetails(page: Page): Promise<any[]> {
+  private async extractProductDetails(page: Page): Promise<CoupangExtractDetail[]> {
     return page.evaluate(() => {
       const getPrice = (text: string) => text?.replace(/[^0-9]/g, '') || null;
 

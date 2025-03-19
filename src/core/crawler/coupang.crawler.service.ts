@@ -1,4 +1,4 @@
-import { CronType } from '@daechanjo/models';
+import { CoupangExtractDetail, CronType } from '@daechanjo/models';
 import { PlaywrightService } from '@daechanjo/playwright';
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -180,10 +180,8 @@ export class CoupangCrawlerService {
         }
 
         // 현재 페이지 크롤링
-        const scrapedProducts = await this.crawlCoupangDetailProductsProvider.scrapeProductPage(
-          coupangPage,
-          currentPage,
-        );
+        const scrapedProducts: CoupangExtractDetail[] =
+          await this.crawlCoupangDetailProductsProvider.scrapeProductPage(coupangPage, currentPage);
 
         // 수집된 데이터 저장
         await this.coupangRepository.saveCoupangProductDetails(scrapedProducts);

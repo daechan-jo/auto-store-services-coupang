@@ -73,11 +73,13 @@ export class AppModule implements OnApplicationBootstrap, OnModuleInit {
   constructor(
     @InjectQueue('coupang-message-queue') private readonly queue: Queue,
     private readonly playwrightService: PlaywrightService,
+    private readonly coupangApiService: CoupangApiService,
   ) {}
 
   async onApplicationBootstrap() {
     setTimeout(async () => {
-      await this.playwrightService.init(true, 'chromium');
+      // await this.playwrightService.init(true, 'chromium');
+      await this.coupangApiService.getProductDetail('test', 'test', 15439698689);
     });
   }
 
@@ -86,6 +88,6 @@ export class AppModule implements OnApplicationBootstrap, OnModuleInit {
     await this.queue.clean(0, 'wait'); // 대기 중인 작업 제거
     await this.queue.clean(0, 'active'); // 활성 작업 제거
     await this.queue.empty(); // 모든 대기 중인 작업 제거 (옵션)
-    console.log('Bull 대기열 정리 완료');
+    console.log('Bull 대기열 초기화');
   }
 }

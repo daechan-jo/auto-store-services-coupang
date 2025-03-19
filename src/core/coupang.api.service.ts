@@ -169,6 +169,7 @@ export class CoupangApiService {
         },
       });
 
+      console.log(JSON.stringify(response.data.data, null, 2));
       return response.data.data;
     } catch (error: any) {
       console.error(

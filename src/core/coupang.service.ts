@@ -114,6 +114,7 @@ export class CoupangService {
     }
   }
 
+  // todo 삭제
   async coupangProductsPriceControl(cronId: string, type: string) {
     console.log(`${type}${cronId}: 새로운 상품 가격 업데이트 시작`);
 

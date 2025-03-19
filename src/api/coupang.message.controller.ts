@@ -6,56 +6,81 @@ import { Queue } from 'bull';
 
 import { CoupangApiService } from '../core/coupang.api.service';
 import { CoupangService } from '../core/coupang.service';
+import { CoupangCrawlerService } from '../core/crawler/coupang.crawler.service';
 
 @Controller()
 export class CoupangMessageController {
   constructor(
     private readonly coupangService: CoupangService,
     private readonly coupangApiService: CoupangApiService,
+    private readonly coupangCrawlerService: CoupangCrawlerService,
     @InjectQueue('coupang-message-queue') private readonly messageQueue: Queue,
   ) {}
 
+  // @MessagePattern('coupang-queue')
+  // async handleMailMessage(message: any) {
+  //   const { pattern, payload } = message;
+  //   const type = payload.type;
+  //   const cronId = payload.cronId;
+  //
+  //   try {
+  //     const queuePatterns = [
+  //       'orderStatusUpdate',
+  //       'invoiceUpload',
+  //       'crawlCoupangDetailProducts',
+  //       'deleteConfirmedCoupangProduct',
+  //     ];
+  //
+  //     if (queuePatterns.includes(pattern)) {
+  //       console.log(`${type}${cronId}: 📨${pattern}`);
+  //       const job = await this.messageQueue.add('process-message', message);
+  //
+  //       // 결과를 반환해야 하는 경우
+  //       if (
+  //         ['invoiceUpload', 'crawlCoupangDetailProducts', 'deleteConfirmedCoupangProduct'].includes(
+  //           pattern,
+  //         )
+  //       ) {
+  //         const result = await job.finished();
+  //         return { status: 'success', data: result };
+  //       }
+  //
+  //       return;
+  //     }
+  //     return await this.processMessage(pattern, payload, type, cronId);
+  //   } catch (error: any) {
+  //     console.error(`${CronType.ERROR}${type}${cronId}:  📬${pattern}\n`, error);
+  //     return { status: 'error', message: error.message };
+  //   }
+  // }
+
   @MessagePattern('coupang-queue')
-  async handleMailMessage(message: any) {
-    const { pattern, payload } = message;
-    const type = payload.type;
-    const cronId = payload.cronId;
-
-    try {
-      const queuePatterns = [
-        'orderStatusUpdate',
-        'invoiceUpload',
-        'crawlCoupangDetailProducts',
-        'deleteConfirmedCoupangProduct',
-      ];
-
-      if (queuePatterns.includes(pattern)) {
-        console.log(`${type}${cronId}: 📨${pattern}`);
-        const job = await this.messageQueue.add('process-message', message);
-
-        // 결과를 반환해야 하는 경우
-        if (
-          ['invoiceUpload', 'crawlCoupangDetailProducts', 'deleteConfirmedCoupangProduct'].includes(
-            pattern,
-          )
-        ) {
-          const result = await job.finished();
-          return { status: 'success', data: result };
-        }
-
-        return;
-      }
-      return await this.processMessage(pattern, payload, type, cronId);
-    } catch (error: any) {
-      console.error(`${CronType.ERROR}${type}${cronId}:  📬${pattern}\n`, error);
-      return { status: 'error', message: error.message };
-    }
-  }
-
   async processMessage(pattern: string, payload: any, type: string, cronId: string) {
     console.log(`${type}${cronId}: 📬${pattern}`);
 
     switch (pattern) {
+      case 'orderStatusUpdate':
+        await this.coupangCrawlerService.orderStatusUpdate(payload.cronId, payload.type);
+        break;
+
+      case 'invoiceUpload':
+        return await this.coupangCrawlerService.invoiceUpload(
+          payload.cronId,
+          payload.updatedOrders,
+          payload.type,
+        );
+
+      case 'crawlCoupangDetailProducts':
+        await this.coupangCrawlerService.crawlCoupangDetailProducts(payload.cronId, payload.type);
+        return 'success';
+
+      case 'deleteConfirmedCoupangProduct':
+        const matchedProducts = await this.coupangCrawlerService.deleteConfirmedCoupangProduct(
+          payload.cronId,
+          payload.type,
+        );
+        return { status: 'success', data: matchedProducts };
+
       case 'getProductListPaging':
         const coupangProducts = await this.coupangApiService.getProductListPaging(
           payload.cronId,
