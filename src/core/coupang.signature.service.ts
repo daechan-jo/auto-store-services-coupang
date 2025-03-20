@@ -22,7 +22,7 @@ export class CoupangSignatureService {
     useQuery: boolean = true,
   ) {
     const datetime =
-      new Date().toISOString().slice(2, 19).replace(/:/gi, '').replace(/-/gi, '') + 'Z';
+      new Date().toISOString().substr(2, 17).replace(/:/gi, '').replace(/-/gi, '') + 'Z';
 
     const query = useQuery
       ? new URLSearchParams({

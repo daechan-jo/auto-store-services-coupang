@@ -78,8 +78,7 @@ export class AppModule implements OnApplicationBootstrap, OnModuleInit {
 
   async onApplicationBootstrap() {
     setTimeout(async () => {
-      // await this.playwrightService.init(true, 'chromium');
-      await this.coupangApiService.getProductDetail('test', 'test', 15439698689);
+      await this.playwrightService.init(true, 'chromium');
     });
   }
 

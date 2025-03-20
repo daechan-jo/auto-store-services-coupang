@@ -1,4 +1,4 @@
-import { CronType } from '@daechanjo/models';
+import { CronType, RabbitmqMessage } from '@daechanjo/models';
 import { InjectQueue } from '@nestjs/bull';
 import { Controller } from '@nestjs/common';
 import { MessagePattern } from '@nestjs/microservices';
@@ -55,8 +55,9 @@ export class CoupangMessageController {
   // }
 
   @MessagePattern('coupang-queue')
-  async processMessage(pattern: string, payload: any, type: string, cronId: string) {
-    console.log(`${type}${cronId}: 📬${pattern}`);
+  async processMessage(message: RabbitmqMessage) {
+    const { pattern, payload } = message;
+    console.log(`${payload.type}${payload.cronId}: 📬${pattern}`);
 
     switch (pattern) {
       case 'orderStatusUpdate':
@@ -148,7 +149,9 @@ export class CoupangMessageController {
         return { status: 'success' };
 
       default:
-        console.error(`${CronType.ERROR}${type}${cronId}: 📬알 수 없는 패턴 유형 ${pattern}`);
+        console.error(
+          `${CronType.ERROR}${payload.type}${payload.cronId}: 📬알 수 없는 패턴 유형 ${pattern}`,
+        );
         return { status: 'error', message: `알 수 없는 패턴 유형: ${pattern}` };
     }
   }
