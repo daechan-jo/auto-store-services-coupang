@@ -19,6 +19,7 @@ import { DeleteConfirmedCoupangProductProvider } from './core/crawler/provider/d
 import { InvoiceUploaderProvider } from './core/crawler/provider/invoiceUploader.provider';
 import { OrderStatusUpdateProvider } from './core/crawler/provider/orderStatusUpdate.provider';
 import { CoupangProductEntity } from './infrastructure/entities/coupangProduct.entity';
+import { CoupangUpdateItemEntity } from './infrastructure/entities/coupangUpdateItem.entity';
 import { CoupangRepository } from './infrastructure/repository/coupang.repository';
 
 @Module({
@@ -28,7 +29,7 @@ import { CoupangRepository } from './infrastructure/repository/coupang.repositor
       envFilePath: '/Users/daechanjo/codes/project/auto-store/.env',
     }),
     TypeOrmModule.forRootAsync(TypeormConfig),
-    TypeOrmModule.forFeature([CoupangProductEntity]),
+    TypeOrmModule.forFeature([CoupangProductEntity, CoupangUpdateItemEntity]),
     BullModule.registerQueueAsync({
       name: 'coupang-message-queue',
       useFactory: async (configService: ConfigService) => ({

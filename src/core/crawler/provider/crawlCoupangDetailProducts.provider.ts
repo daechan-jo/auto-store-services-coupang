@@ -26,7 +26,7 @@ export class CrawlCoupangDetailProductsProvider {
    * 각 상품의 판매자 상품 ID, 상품 코드, 아이템 위너 여부, 가격, 배송비 정보를 추출합니다.
    * 페이지 내의 모든 콘텐츠를 확인하기 위해 점진적인 스크롤 동작을 수행합니다.
    */
-  async scrapeProductPage(page: Page, currentPage: number): Promise<any[]> {
+  async scrapeProductPage(page: Page, currentPage: number): Promise<CoupangExtractDetail[]> {
     // 페이지 이동 및 로딩 대기
     await this.navigateToProductPage(page, currentPage);
 
@@ -113,8 +113,16 @@ export class CrawlCoupangDetailProductsProvider {
           ? ipContentDiv.textContent.replace(/[^0-9]/g, '')
           : null;
 
-        const productCode =
-          row.querySelector('.ip-title')?.textContent?.trim().split(' ')[0] || null;
+        const ipTitleElement = row.querySelector('.ip-title');
+        const fullText = ipTitleElement?.textContent?.trim() || '';
+        const parts = fullText.split(' ');
+
+        // 제품 코드 이후의 텍스트를 상품 이름으로 추출
+        const sellerProductName = parts.length > 1 ? parts.slice(1).join(' ') : '';
+        const productCode = parts[0] || null;
+
+        // const productCode =
+        //   row.querySelector('.ip-title')?.textContent?.trim().split(' ')[0] || null;
 
         const isWinnerContainer = row.querySelector('.ies-container');
         const isWinnerText =
@@ -125,12 +133,16 @@ export class CrawlCoupangDetailProductsProvider {
         const priceText = row.querySelector('.isp-top')?.textContent || '';
         const shippingText = row.querySelector('.isp-bottom')?.textContent || '';
 
+        if (!parseInt(getPrice(priceText))) {
+          throw new Error('가격이 없습니다');
+        }
         return {
           sellerProductId,
+          sellerProductName,
           productCode,
           isWinner,
-          price: priceText ? parseInt(getPrice(priceText)) : null,
-          shippingCost: shippingText ? parseInt(getPrice(shippingText)) : 0,
+          price: parseInt(getPrice(priceText)),
+          shippingCost: shippingText ? parseInt(getPrice(shippingText)) || 0 : 0,
         };
       });
     });

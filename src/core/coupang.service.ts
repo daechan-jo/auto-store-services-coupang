@@ -1,6 +1,6 @@
 import * as path from 'path';
 
-import { CronType } from '@daechanjo/models';
+import { AdjustData, CronType, OnchWithCoupangProduct } from '@daechanjo/models';
 import { RabbitMQService } from '@daechanjo/rabbitmq';
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -21,35 +21,40 @@ export class CoupangService {
     private readonly coupangApiService: CoupangApiService,
   ) {}
 
-  async stopSaleForMatchedProducts(cronId: string, type: string, matchedProducts: any[]) {
+  async stopSaleForMatchedProducts(
+    cronId: string,
+    type: string,
+    matchedProducts: OnchWithCoupangProduct[],
+  ) {
     console.log(`${type}${cronId}: 쿠팡 아이템 판매 중지 시작`);
     if (matchedProducts.length === 0) {
       console.warn(`${type}${cronId}: 중지할 아이템이 없습니다`);
     }
     const detailedProducts = [];
     for (const [i, product] of matchedProducts.entries()) {
-      const progress = Math.floor(((i + 1) / matchedProducts.length) * 100);
-      if (progress % 10 === 0) {
+      if (i % Math.ceil(matchedProducts.length / 10) === 0) {
+        const progressPercentage = ((i + 1) / matchedProducts.length) * 100;
         console.log(
-          `${type}${cronId}: 중지 아이템 상세조회중 ${i + 1}/${matchedProducts.length} - ${progress}%`,
+          `${type}${cronId}: 중지 상품 상세조회중 ${i + 1}/${matchedProducts.length} (${progressPercentage.toFixed(2)}%)`,
         );
       }
 
       const details = await this.coupangApiService.getProductDetail(
         cronId,
         type,
-        product.sellerProductId,
+        +product.sellerProductId,
       );
       detailedProducts.push(details);
       await new Promise((resolve) => setTimeout(resolve, 500));
     }
 
     for (const [i, productDetail] of detailedProducts.entries()) {
-      const progress = Math.floor(((i + 1) / detailedProducts.length) * 100);
-      if (progress % 10 === 0)
+      if (i % Math.ceil(detailedProducts.length / 10) === 0) {
+        const progressPercentage = ((i + 1) / detailedProducts.length) * 100;
         console.log(
-          `${type}${cronId}: 아이템 중지중 ${i + 1}/${detailedProducts.length} - ${progress}%`,
+          `${type}${cronId}: 아이템 중지중 ${i + 1}/${detailedProducts.length} (${progressPercentage.toFixed(2)}%)`,
         );
+      }
 
       if (productDetail && productDetail.items) {
         const items = productDetail.items;
@@ -63,7 +68,7 @@ export class CoupangService {
     return { status: 'success' };
   }
 
-  async deleteProducts(cronId: string, type: string, matchedProducts: any[]) {
+  async deleteProducts(cronId: string, type: string, matchedProducts: OnchWithCoupangProduct[]) {
     console.log(`${type}${cronId}: 쿠팡 상품 삭제 시작`);
     if (matchedProducts.length === 0) {
       console.warn(`${type}${cronId}: 삭제할 상품이 없습니다`);
@@ -72,19 +77,20 @@ export class CoupangService {
 
     const deletedProducts: { sellerProductId: number; productName: string }[] = [];
     for (const [i, product] of matchedProducts.entries()) {
-      const progress = Math.floor(((i + 1) / matchedProducts.length) * 100);
-      if (progress % 10 === 0)
+      if (i % Math.ceil(matchedProducts.length / 10) === 0) {
+        const progressPercentage = ((i + 1) / matchedProducts.length) * 100;
         console.log(
-          `${type}${cronId}: 아이템 삭제중 ${i + 1}/${matchedProducts.length} - ${progress}%`,
+          `${type}${cronId}: 아이템 삭제중 ${i + 1}/${matchedProducts.length} (${progressPercentage.toFixed(2)}%)`,
         );
+      }
 
       try {
         await this.coupangApiService.deleteProduct(product);
 
         deletedProducts.push({
-          sellerProductId: product.sellerProductId,
-          productName: product.sellerProductName
-            ? product.sellerProductName
+          sellerProductId: +product.sellerProductId,
+          productName: product.coupangProductCode
+            ? product.coupangProductCode
             : product.onchItems[0].itemName.trim(),
         });
 
@@ -114,34 +120,21 @@ export class CoupangService {
     }
   }
 
-  // todo 삭제
   async coupangProductsPriceControl(cronId: string, type: string) {
     console.log(`${type}${cronId}: 새로운 상품 가격 업데이트 시작`);
 
     let successCount = 0;
     let failedCount = 0;
 
-    console.log(`${type}${cronId}: 업데이트 상품정보 요청 메시지 전송`);
-    const updatedItems = await this.rabbitmqService.send('price-queue', 'getUpdatedItems', {
-      cronId: cronId,
-    });
+    const updatedItems = await this.coupangRepository.getUpdatedItems(cronId);
 
-    if (!updatedItems) {
-      console.error(
-        `${CronType.ERROR}${type}${cronId}: price-queue'에서 'getUpdatedItems' 메시지에 대한 응답이 없습니다\n`,
-      );
-      throw new Error(
-        '업데이트된 항목을 가져올 수 없습니다. 가격 대기열이 올바르게 처리되고 있는지 확인하세요.',
-      );
-    }
+    console.log(`${type}${cronId}: 총 ${updatedItems.length}개의 아이템 업데이트`);
 
-    console.log(`${type}${cronId}: 총 ${updatedItems.data.length}개의 아이템 업데이트`);
-
-    for (const [i, item] of updatedItems.data.entries()) {
-      const progress = Math.floor(((i + 1) / updatedItems.data.length) * 100);
+    for (const [i, item] of updatedItems.entries()) {
+      const progress = Math.floor(((i + 1) / updatedItems.length) * 100);
       if (progress % 10 === 0)
         console.log(
-          `${type}${cronId}: 가격 업데이트 중 ${i + 1}/${updatedItems.data.length} - ${progress}%`,
+          `${type}${cronId}: 가격 업데이트 중 ${i + 1}/${updatedItems.length} - ${progress}%`,
         );
 
       const vendorItemId = item.vendorItemId;
@@ -178,11 +171,10 @@ export class CoupangService {
     console.log(`${type}${cronId}: 엑셀 생성 시작`);
     setImmediate(async () => {
       try {
-        const excelData = updatedItems.data.map((item: any) => ({
+        const excelData = updatedItems.map((item: any) => ({
           'Seller Product ID': item.sellerProductId,
           'Vendor Item ID': item.vendorItemId,
           'Item Name': item.itemName,
-          Action: item.action,
           'New Price': item.newPrice,
           'Current Price': item.currentPrice,
           'Current Is Winner': item.currentIsWinner,
@@ -192,8 +184,8 @@ export class CoupangService {
         const worksheet = XLSX.utils.json_to_sheet(excelData);
         const workbook = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(workbook, worksheet, 'UpdatedProducts');
-
-        const filePath = path.resolve(__dirname, '../../../../../tmp', `coupang_${cronId}.xlsx`);
+        const filePath =
+          '/Users/daechanjo/codes/project/auto-store/tmp/coupang_' + cronId + '.xlsx';
 
         XLSX.writeFile(workbook, filePath);
 
@@ -244,5 +236,9 @@ export class CoupangService {
 
   async clearCoupangProducts() {
     await this.coupangRepository.clearCoupangProducts();
+  }
+
+  async saveUpdateCoupangItems(cronId: string, type: string, items: AdjustData[]) {
+    await this.coupangRepository.saveUpdatedCoupangItems(items, cronId);
   }
 }

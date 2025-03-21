@@ -17,43 +17,6 @@ export class CoupangMessageController {
     @InjectQueue('coupang-message-queue') private readonly messageQueue: Queue,
   ) {}
 
-  // @MessagePattern('coupang-queue')
-  // async handleMailMessage(message: any) {
-  //   const { pattern, payload } = message;
-  //   const type = payload.type;
-  //   const cronId = payload.cronId;
-  //
-  //   try {
-  //     const queuePatterns = [
-  //       'orderStatusUpdate',
-  //       'invoiceUpload',
-  //       'crawlCoupangDetailProducts',
-  //       'deleteConfirmedCoupangProduct',
-  //     ];
-  //
-  //     if (queuePatterns.includes(pattern)) {
-  //       console.log(`${type}${cronId}: 📨${pattern}`);
-  //       const job = await this.messageQueue.add('process-message', message);
-  //
-  //       // 결과를 반환해야 하는 경우
-  //       if (
-  //         ['invoiceUpload', 'crawlCoupangDetailProducts', 'deleteConfirmedCoupangProduct'].includes(
-  //           pattern,
-  //         )
-  //       ) {
-  //         const result = await job.finished();
-  //         return { status: 'success', data: result };
-  //       }
-  //
-  //       return;
-  //     }
-  //     return await this.processMessage(pattern, payload, type, cronId);
-  //   } catch (error: any) {
-  //     console.error(`${CronType.ERROR}${type}${cronId}:  📬${pattern}\n`, error);
-  //     return { status: 'error', message: error.message };
-  //   }
-  // }
-
   @MessagePattern('coupang-queue')
   async processMessage(message: RabbitmqMessage) {
     const { pattern, payload } = message;
@@ -134,7 +97,7 @@ export class CoupangMessageController {
 
       case 'coupangProductsPriceControl':
         await this.coupangService.coupangProductsPriceControl(payload.cronId, payload.type);
-        return { status: 'success' };
+        break;
 
       case 'shippingCostManagement':
         const shippingCostResult = await this.coupangService.shippingCostManagement(
@@ -146,6 +109,14 @@ export class CoupangMessageController {
 
       case 'clearCoupangProducts':
         await this.coupangService.clearCoupangProducts();
+        return { status: 'success' };
+
+      case 'saveUpdateCoupangItems':
+        await this.coupangService.saveUpdateCoupangItems(
+          payload.cronId,
+          payload.type,
+          payload.items,
+        );
         return { status: 'success' };
 
       default:

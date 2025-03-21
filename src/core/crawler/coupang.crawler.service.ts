@@ -169,6 +169,8 @@ export class CoupangCrawlerService {
       // 쿠팡 윙 로그인 및 페이지 객체 가져오기
       const coupangPage = await this.playwrightService.loginToCoupangSite(contextId, pageId);
 
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
       let isLastPage = false;
       let currentPage = 1;
 
