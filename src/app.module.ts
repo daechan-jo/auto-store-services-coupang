@@ -18,6 +18,7 @@ import { CrawlCoupangDetailProductsProvider } from './core/crawler/provider/craw
 import { DeleteConfirmedCoupangProductProvider } from './core/crawler/provider/deleteConfirmedCoupangProduct.provider';
 import { InvoiceUploaderProvider } from './core/crawler/provider/invoiceUploader.provider';
 import { OrderStatusUpdateProvider } from './core/crawler/provider/orderStatusUpdate.provider';
+import { CoupangComparisonEntity } from './infrastructure/entities/coupangComparison.entity';
 import { CoupangProductEntity } from './infrastructure/entities/coupangProduct.entity';
 import { CoupangUpdateItemEntity } from './infrastructure/entities/coupangUpdateItem.entity';
 import { CoupangRepository } from './infrastructure/repository/coupang.repository';
@@ -29,7 +30,11 @@ import { CoupangRepository } from './infrastructure/repository/coupang.repositor
       envFilePath: '/Users/daechanjo/codes/project/auto-store/.env',
     }),
     TypeOrmModule.forRootAsync(TypeormConfig),
-    TypeOrmModule.forFeature([CoupangProductEntity, CoupangUpdateItemEntity]),
+    TypeOrmModule.forFeature([
+      CoupangProductEntity,
+      CoupangUpdateItemEntity,
+      CoupangComparisonEntity,
+    ]),
     BullModule.registerQueueAsync({
       name: 'coupang-message-queue',
       useFactory: async (configService: ConfigService) => ({
@@ -58,12 +63,12 @@ import { CoupangRepository } from './infrastructure/repository/coupang.repositor
   ],
   controllers: [CoupangMessageController],
   providers: [
-    CoupangService,
     CoupangSignatureService,
-    CoupangCrawlerService,
-    CoupangRepository,
-    MessageQueueProcessor,
+    CoupangService,
     CoupangApiService,
+    CoupangCrawlerService,
+    MessageQueueProcessor,
+    CoupangRepository,
     OrderStatusUpdateProvider,
     InvoiceUploaderProvider,
     DeleteConfirmedCoupangProductProvider,
@@ -75,11 +80,13 @@ export class AppModule implements OnApplicationBootstrap, OnModuleInit {
     @InjectQueue('coupang-message-queue') private readonly queue: Queue,
     private readonly playwrightService: PlaywrightService,
     private readonly coupangApiService: CoupangApiService,
+    private readonly coupangCrawlerService: CoupangCrawlerService,
   ) {}
 
   async onApplicationBootstrap() {
     setTimeout(async () => {
       await this.playwrightService.init(true, 'chromium');
+      // await this.coupangCrawlerService.crawlCoupangPriceComparison('test', 'test');
     });
   }
 

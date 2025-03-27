@@ -128,6 +128,11 @@ export class CoupangService {
 
     const updatedItems = await this.coupangRepository.getUpdatedItems(cronId);
 
+    if (updatedItems.length === 0) {
+      console.log(`${type}${cronId}: 새로운 업데이트가 없습니다. 종료합니다.`);
+      return;
+    }
+
     console.log(`${type}${cronId}: 총 ${updatedItems.length}개의 아이템 업데이트`);
 
     for (const [i, item] of updatedItems.entries()) {

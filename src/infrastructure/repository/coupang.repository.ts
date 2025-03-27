@@ -1,7 +1,8 @@
-import { AdjustData } from '@daechanjo/models';
+import { AdjustData, CoupangPriceComparisonData } from '@daechanjo/models';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 
+import { CoupangComparisonEntity } from '../entities/coupangComparison.entity';
 import { CoupangProductEntity } from '../entities/coupangProduct.entity';
 import { CoupangUpdateItemEntity } from '../entities/coupangUpdateItem.entity';
 
@@ -11,6 +12,8 @@ export class CoupangRepository {
     private readonly coupangProductRepository: Repository<CoupangProductEntity>,
     @InjectRepository(CoupangUpdateItemEntity)
     private readonly coupangUpdateItemRepository: Repository<CoupangUpdateItemEntity>,
+    @InjectRepository(CoupangComparisonEntity)
+    private readonly coupangComparisonRepository: Repository<CoupangComparisonEntity>,
   ) {}
 
   async saveUpdatedCoupangItems(items: AdjustData[], cronId: string) {
@@ -38,5 +41,9 @@ export class CoupangRepository {
     return this.coupangUpdateItemRepository.find({
       where: { cronId: cronId },
     });
+  }
+
+  async savePriceComparison(comparisonData: CoupangPriceComparisonData[]) {
+    await this.coupangComparisonRepository.save(comparisonData);
   }
 }

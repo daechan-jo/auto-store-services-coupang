@@ -34,8 +34,8 @@ export class CoupangMessageController {
           payload.type,
         );
 
-      case 'crawlCoupangDetailProducts':
-        await this.coupangCrawlerService.crawlCoupangDetailProducts(payload.cronId, payload.type);
+      case 'crawlCoupangPriceComparison':
+        await this.coupangCrawlerService.crawlCoupangPriceComparison(payload.cronId, payload.type);
         return 'success';
 
       case 'deleteConfirmedCoupangProduct':
