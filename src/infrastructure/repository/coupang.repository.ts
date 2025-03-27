@@ -46,4 +46,8 @@ export class CoupangRepository {
   async savePriceComparison(comparisonData: CoupangPriceComparisonData[]) {
     await this.coupangComparisonRepository.save(comparisonData);
   }
+
+  async getComparisonCount() {
+    return await this.coupangComparisonRepository.count();
+  }
 }

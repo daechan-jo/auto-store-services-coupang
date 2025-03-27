@@ -119,6 +119,10 @@ export class CoupangMessageController {
         );
         return { status: 'success' };
 
+      case 'getComparisonCount':
+        const count = await this.coupangService.getComparisonCount();
+        return { status: 'success', data: count };
+
       default:
         console.error(
           `${CronType.ERROR}${payload.type}${payload.cronId}: 📬알 수 없는 패턴 유형 ${pattern}`,

@@ -246,4 +246,8 @@ export class CoupangService {
   async saveUpdateCoupangItems(cronId: string, type: string, items: AdjustData[]) {
     await this.coupangRepository.saveUpdatedCoupangItems(items, cronId);
   }
+
+  async getComparisonCount() {
+    return this.coupangRepository.getComparisonCount();
+  }
 }
