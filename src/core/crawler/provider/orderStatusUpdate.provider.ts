@@ -147,9 +147,28 @@ export class OrderStatusUpdateProvider {
    * @param page - Playwright의 Page 객체
    */
   private async enterDetailReason(page: Page): Promise<void> {
-    const textareaSelector = 'textarea[placeholder="Enter reason in detail"]';
-    await page.waitForSelector(textareaSelector, { state: 'visible' });
-    await page.fill(textareaSelector, '상품을 준비합니다');
+    // 제공한 CSS 셀렉터 사용
+    const textareaSelector =
+      '#wing-top-body > div > div.search-table > div > div.wing-web-component.modal-title > div > div:nth-child(2) > div > dl:nth-child(2) > dd > span > textarea';
+
+    try {
+      await page.waitForSelector(textareaSelector, { state: 'visible', timeout: 10000 });
+      await page.fill(textareaSelector, '상품을 준비합니다');
+    } catch (error) {
+      console.error('텍스트 영역을 찾거나 입력하는 도중 오류 발생:', error);
+      console.log('대체 셀렉터 시도 중...');
+      try {
+        await page.waitForSelector('textarea[placeholder="Enter reason in detail"]', {
+          state: 'visible',
+          timeout: 5000,
+        });
+        await page.fill('textarea[placeholder="Enter reason in detail"]', '상품을 준비합니다');
+      } catch (altError) {
+        console.error('대체 셀렉터도 실패:', altError);
+
+        throw new Error('텍스트 영역을 찾을 수 없습니다.');
+      }
+    }
   }
 
   /**

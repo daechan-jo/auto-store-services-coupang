@@ -33,8 +33,8 @@ export class CoupangRepository {
     return await this.coupangProductRepository.find();
   }
 
-  async clearCoupangProducts() {
-    return await this.coupangProductRepository.delete({});
+  async clearCoupangComparison() {
+    return await this.coupangComparisonRepository.delete({});
   }
 
   async getUpdatedItems(cronId: string) {

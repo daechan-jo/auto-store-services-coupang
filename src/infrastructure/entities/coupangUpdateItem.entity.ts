@@ -5,23 +5,23 @@ export class CoupangUpdateItemEntity {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column({ name: 'vendor_item_id', type: 'bigint', nullable: true })
+  @Column({ name: 'vendor_item_id', type: 'bigint', nullable: false })
   vendorItemId: number;
 
-  @Column({ name: 'seller_product_id', type: 'varchar', length: 255, nullable: true })
-  sellerProductId: string;
+  @Column({ name: 'product_name', type: 'varchar', length: 255, nullable: false })
+  productName: string;
 
-  @Column({ name: 'item_name', type: 'varchar', length: 255, nullable: true })
-  itemName: string;
-
-  @Column({ name: 'new_price', type: 'int', nullable: true })
+  @Column({ name: 'new_price', type: 'int', nullable: false })
   newPrice: number;
 
-  @Column({ name: 'current_price', type: 'int', nullable: true })
+  @Column({ name: 'current_price', type: 'int', nullable: false })
   currentPrice: number;
 
-  @Column({ name: 'current_is_winner', type: 'boolean', nullable: true })
-  currentIsWinner: boolean;
+  @Column({ name: 'winner_price', type: 'int', nullable: false })
+  winnerPrice: number;
+
+  @Column({ name: 'seller_price', type: 'int', nullable: false })
+  sellerPrice: number;
 
   @Column({ name: 'cron_id', type: 'varchar', unique: false })
   cronId: string;

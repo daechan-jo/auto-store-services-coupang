@@ -20,9 +20,10 @@
   },
   "dependencies": {
     "@daechanjo/log": "^1.0.0",
-    "@daechanjo/models": "^1.0.26",
+    "@daechanjo/models": "^1.0.30",
     "@daechanjo/playwright": "^1.2.2",
     "@daechanjo/rabbitmq": "^1.0.1",
+    "@daechanjo/util": "^1.2.0",
     "@eslint/eslintrc": "^3.3.0",
     "@nestjs/bull": "^11.0.2",
     "@nestjs/typeorm": "^11.0.0",

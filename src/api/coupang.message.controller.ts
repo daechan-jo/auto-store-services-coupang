@@ -79,20 +79,16 @@ export class CoupangMessageController {
         );
         break;
 
-      case 'stopSaleForMatchedProducts':
-        await this.coupangService.stopSaleForMatchedProducts(
+      case 'stopSaleBySellerProductId':
+        await this.coupangService.stopSaleBySellerProductId(
           payload.cronId,
           payload.type,
-          payload.matchedProducts,
+          payload.data,
         );
         return { status: 'success' };
 
-      case 'deleteProducts':
-        await this.coupangService.deleteProducts(
-          payload.cronId,
-          payload.type,
-          payload.matchedProducts,
-        );
+      case 'deleteBySellerProductId':
+        await this.coupangService.deleteProducts(payload.cronId, payload.type, payload.data);
         return { status: 'success' };
 
       case 'coupangProductsPriceControl':
@@ -107,8 +103,8 @@ export class CoupangMessageController {
         );
         return { status: 'success', data: shippingCostResult };
 
-      case 'clearCoupangProducts':
-        await this.coupangService.clearCoupangProducts();
+      case 'clearCoupangComparison':
+        await this.coupangService.clearCoupangComparison();
         return { status: 'success' };
 
       case 'saveUpdateCoupangItems':

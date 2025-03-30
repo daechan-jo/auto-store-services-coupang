@@ -1,6 +1,9 @@
-import * as path from 'path';
-
-import { AdjustData, CronType, OnchWithCoupangProduct } from '@daechanjo/models';
+import {
+  AdjustData,
+  CoupangComparisonWithOnchData,
+  CronType,
+  OnchWithCoupangProduct,
+} from '@daechanjo/models';
 import { RabbitMQService } from '@daechanjo/rabbitmq';
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -9,6 +12,7 @@ import * as XLSX from 'xlsx';
 
 import { CoupangApiService } from './coupang.api.service';
 import { CoupangSignatureService } from './coupang.signature.service';
+import { CoupangUpdateItemEntity } from '../infrastructure/entities/coupangUpdateItem.entity';
 import { CoupangRepository } from '../infrastructure/repository/coupang.repository';
 
 @Injectable()
@@ -21,29 +25,31 @@ export class CoupangService {
     private readonly coupangApiService: CoupangApiService,
   ) {}
 
-  async stopSaleForMatchedProducts(
+  async stopSaleBySellerProductId(
     cronId: string,
     type: string,
-    matchedProducts: OnchWithCoupangProduct[],
+    data: OnchWithCoupangProduct[] | CoupangComparisonWithOnchData[],
   ) {
     console.log(`${type}${cronId}: 쿠팡 아이템 판매 중지 시작`);
-    if (matchedProducts.length === 0) {
+    if (data.length === 0) {
       console.warn(`${type}${cronId}: 중지할 아이템이 없습니다`);
     }
     const detailedProducts = [];
-    for (const [i, product] of matchedProducts.entries()) {
-      if (i % Math.ceil(matchedProducts.length / 10) === 0) {
-        const progressPercentage = ((i + 1) / matchedProducts.length) * 100;
+
+    for (const [i, product] of data.entries()) {
+      if (i % Math.ceil(data.length / 10) === 0) {
+        const progressPercentage = ((i + 1) / data.length) * 100;
         console.log(
-          `${type}${cronId}: 중지 상품 상세조회중 ${i + 1}/${matchedProducts.length} (${progressPercentage.toFixed(2)}%)`,
+          `${type}${cronId}: 중지 상품 상세조회중 ${i + 1}/${data.length} (${progressPercentage.toFixed(2)}%)`,
         );
       }
 
-      const details = await this.coupangApiService.getProductDetail(
-        cronId,
-        type,
-        +product.sellerProductId,
-      );
+      const productId =
+        type === CronType.SOLDOUT
+          ? +(product as OnchWithCoupangProduct).sellerProductId
+          : (product as CoupangComparisonWithOnchData).vendorInventoryId;
+
+      const details = await this.coupangApiService.getProductDetail(cronId, type, productId);
       detailedProducts.push(details);
       await new Promise((resolve) => setTimeout(resolve, 500));
     }
@@ -65,39 +71,52 @@ export class CoupangService {
         }
       }
     }
+
     return { status: 'success' };
   }
 
-  async deleteProducts(cronId: string, type: string, matchedProducts: OnchWithCoupangProduct[]) {
+  async deleteProducts(
+    cronId: string,
+    type: string,
+    data: OnchWithCoupangProduct[] | CoupangComparisonWithOnchData[],
+  ) {
     console.log(`${type}${cronId}: 쿠팡 상품 삭제 시작`);
-    if (matchedProducts.length === 0) {
+    if (data.length === 0) {
       console.warn(`${type}${cronId}: 삭제할 상품이 없습니다`);
       return;
     }
 
     const deletedProducts: { sellerProductId: number; productName: string }[] = [];
-    for (const [i, product] of matchedProducts.entries()) {
-      if (i % Math.ceil(matchedProducts.length / 10) === 0) {
-        const progressPercentage = ((i + 1) / matchedProducts.length) * 100;
+    for (const [i, product] of data.entries()) {
+      if (i % Math.ceil(data.length / 10) === 0) {
+        const progressPercentage = ((i + 1) / data.length) * 100;
         console.log(
-          `${type}${cronId}: 아이템 삭제중 ${i + 1}/${matchedProducts.length} (${progressPercentage.toFixed(2)}%)`,
+          `${type}${cronId}: 아이템 삭제중 ${i + 1}/${data.length} (${progressPercentage.toFixed(2)}%)`,
         );
       }
 
+      const productId =
+        type === CronType.SOLDOUT
+          ? +(product as OnchWithCoupangProduct).sellerProductId
+          : (product as CoupangComparisonWithOnchData).vendorInventoryId;
+
+      const productName =
+        type === CronType.SOLDOUT
+          ? (product as OnchWithCoupangProduct).sellerProductName
+          : (product as CoupangComparisonWithOnchData).productName;
+
       try {
-        await this.coupangApiService.deleteProduct(product);
+        await this.coupangApiService.deleteProduct(productId);
 
         deletedProducts.push({
-          sellerProductId: +product.sellerProductId,
-          productName: product.coupangProductCode
-            ? product.coupangProductCode
-            : product.onchItems[0].itemName.trim(),
+          sellerProductId: productId,
+          productName: productName,
         });
 
         await new Promise((resolve) => setTimeout(resolve, 500));
       } catch (error: any) {
         console.error(
-          `${CronType.ERROR}${type}${cronId}: 쿠팡 상품 삭제 실패-${product.sellerProductId})\n`,
+          `${CronType.ERROR}${type}${cronId}: 쿠팡 상품 삭제 실패-${productId})\n`,
           error.response?.data || error.message,
         );
       }
@@ -176,14 +195,13 @@ export class CoupangService {
     console.log(`${type}${cronId}: 엑셀 생성 시작`);
     setImmediate(async () => {
       try {
-        const excelData = updatedItems.map((item: any) => ({
-          'Seller Product ID': item.sellerProductId,
+        const excelData = updatedItems.map((item: CoupangUpdateItemEntity) => ({
           'Vendor Item ID': item.vendorItemId,
-          'Item Name': item.itemName,
-          'New Price': item.newPrice,
+          'Product Name': item.productName,
+          'Winner Price': item.winnerPrice,
           'Current Price': item.currentPrice,
-          'Current Is Winner': item.currentIsWinner,
-          'Created At': item.createdAt,
+          'Seller Price': item.sellerPrice,
+          'New Price': item.newPrice,
         }));
 
         const worksheet = XLSX.utils.json_to_sheet(excelData);
@@ -239,8 +257,8 @@ export class CoupangService {
     return { successCount: successCount, failedCount: failedCount };
   }
 
-  async clearCoupangProducts() {
-    await this.coupangRepository.clearCoupangProducts();
+  async clearCoupangComparison() {
+    await this.coupangRepository.clearCoupangComparison();
   }
 
   async saveUpdateCoupangItems(cronId: string, type: string, items: AdjustData[]) {

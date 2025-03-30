@@ -316,7 +316,7 @@ export class CoupangApiService {
   /**
    * 쿠팡 판매자 API를 통해 상품을 삭제
    *
-   * @param product - 삭제할 상품 객체 (sellerProductId를 포함해야 함)
+   * @param sellerProductId - 삭제할 상품 sellerProductId
    *
    * @returns {Promise<AxiosResponse>} - API 응답을 포함하는 Promise
    *
@@ -331,8 +331,8 @@ export class CoupangApiService {
    * 이 메서드는 오류를 캐치하지 않고 호출자에게 전달합니다.
    * 따라서 호출자는 API 응답을 처리하거나 오류를 적절히 처리해야 합니다.
    */
-  async deleteProduct(product: any): Promise<AxiosResponse> {
-    const apiPath = `/v2/providers/seller_api/apis/api/v1/marketplace/seller-products/${product.sellerProductId}`;
+  async deleteProduct(sellerProductId: string | number): Promise<AxiosResponse> {
+    const apiPath = `/v2/providers/seller_api/apis/api/v1/marketplace/seller-products/${sellerProductId}`;
     const { authorization, datetime } = await this.signatureService.createHmacSignature(
       'DELETE',
       apiPath,

@@ -61,7 +61,7 @@ export class CoupangCrawlerService {
     try {
       // 쿠팡 윙 로그인 및 페이지 객체 가져오기
       const coupangPage = await this.playwrightService.loginToCoupangSite(contextId, pageId);
-
+      await new Promise((resolve) => setTimeout(resolve, 1000));
       // 주문 상태 업데이트 프로바이더에 처리 위임
       await this.orderStatusUpdateProvider.updateOrderStatus(coupangPage, cronId, type);
 
@@ -281,7 +281,7 @@ export class CoupangCrawlerService {
 
       if (matchedProducts.length > 0) {
         // 일치하는 상품 판매 중지 및 삭제
-        await this.coupangService.stopSaleForMatchedProducts(
+        await this.coupangService.stopSaleBySellerProductId(
           cronId,
           CronType.CONFORM,
           matchedProducts,
