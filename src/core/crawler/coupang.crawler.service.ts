@@ -6,6 +6,7 @@ import { ConfigService } from '@nestjs/config';
 import { CoupangApiService } from '../coupang.api.service';
 import { CoupangService } from '../coupang.service';
 import { CrawlCoupangDetailProductsProvider } from './provider/crawlCoupangDetailProducts.provider';
+import { CrawlCoupangPriceComparisonProvider } from './provider/crawlCoupangPriceComparison.provider';
 import { DeleteConfirmedCoupangProductProvider } from './provider/deleteConfirmedCoupangProduct.provider';
 import { InvoiceUploaderProvider } from './provider/invoiceUploader.provider';
 import { OrderStatusUpdateProvider } from './provider/orderStatusUpdate.provider';
@@ -23,7 +24,7 @@ export class CoupangCrawlerService {
     private readonly orderStatusUpdateProvider: OrderStatusUpdateProvider,
     private readonly crawlCoupangDetailProductsProvider: CrawlCoupangDetailProductsProvider,
     private readonly deleteConfirmedCoupangProductProvider: DeleteConfirmedCoupangProductProvider,
-    // private readonly crawlCoupangPriceComparisonProvider: CrawlCoupangPriceComparisonProvider,
+    private readonly crawlCoupangPriceComparisonProvider: CrawlCoupangPriceComparisonProvider,
   ) {}
 
   /**
@@ -111,18 +112,17 @@ export class CoupangCrawlerService {
 
     const coupangPage = await this.playwrightService.loginToCoupangSite(contextId, pageId);
 
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+
     try {
-      // 배송 관리 페이지로 이동
-      await this.invoiceUploaderProvider.navigateToDeliveryManagementPage(coupangPage);
-
-      // Processing 버튼 클릭
-      await this.invoiceUploaderProvider.clickProcessingButton(coupangPage);
-
       // 각 주문별 처리 결과 저장
       const results = [];
 
       // 각 주문 처리
       for (const order of updatedOrders) {
+        // 배송 관리 페이지로 이동
+        await this.invoiceUploaderProvider.navigateToDeliveryManagementPage(coupangPage);
+
         const result = await this.invoiceUploaderProvider.processOrder(
           coupangPage,
           order,
@@ -300,55 +300,50 @@ export class CoupangCrawlerService {
     }
   }
 
-  async crawlCoupangPriceComparison(cronId: string, type: string) {
-    console.log(`${type}${cronId}: 쿠팡 가격비교 크롤링 시작...`);
+  /**
+   * 쿠팡 윙에서 가격 비교 데이터를 크롤링하는 메서드
+   *
+   * @param cronId - 현재 실행 중인 크론 작업의 고유 식별자
+   * @param type - 로그 메시지에 포함될 작업 유형 식별자
+   * @param winnerStatus - 가격 경쟁 상태 (WIN_NOT_SUPPRESSED 또는 LOSE_NOT_SUPPRESSED)
+   *
+   * @returns {Promise<void>} - 크롤링 작업 완료 후 반환되는 Promise
+   *
+   * @description
+   * 이 메서드는 쿠팡 윙의 가격 비교 페이지에서 판매자의 상품 가격 비교 정보를 크롤링합니다.
+   * winnerStatus에 따라 '아이템 위너' 또는 '아이템 루저' 상태의 상품을 크롤링할 수 있으며,
+   * 동일한 크롤링 로직을 사용합니다.
+   */
+  async crawlCoupangPriceComparison(
+    cronId: string,
+    type: string,
+    winnerStatus: 'LOSE_NOT_SUPPRESSED' | 'WIN_NOT_SUPPRESSED',
+  ): Promise<void> {
+    console.log(`${type}${cronId}: 쿠팡 가격비교 크롤링 시작... (상태: ${winnerStatus})`);
 
-    const coupangPage = await this.playwrightService.loginToCoupangSite('contextId', 'pageId');
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    // 브라우저 컨텍스트 및 페이지 설정
+    const store = this.configService.get<string>('STORE');
+    const contextId = `context-${store}-${cronId}-${winnerStatus}`;
+    const pageId = `page-${store}-${cronId}-${winnerStatus}`;
 
-    let currentPage = 1;
+    try {
+      // 쿠팡 윙 로그인 및 페이지 객체 가져오기
+      const coupangPage = await this.playwrightService.loginToCoupangSite(contextId, pageId);
+      await new Promise((resolve) => setTimeout(resolve, 1000));
 
-    // 모든 페이지 순회
-    while (true) {
-      // 현재 페이지 URL 구성
-      const pageUrl = `https://wing.coupang.com/tenants/seller-price-management/?searchInputValue=&searchInputType=KEYWORD&itemWinnerStatus=LOSE_NOT_SUPPRESSED&salesMethod=ALL&autoPriceStatus=ALL&salesStatus=ON_SALE&alarmStatus=ALL&listingDate.startDate=&listingDate.endDate=&searchPresets&isTopGMV&page=${currentPage}&pageSize=100&sortingType=MY_VI_SALES_DESC`;
-
-      // API 응답 캐치 설정
-      const responsePromise = coupangPage.waitForResponse(
-        (response) => response.url().includes('getProductList') && response.status() === 200,
+      // 가격 비교 페이지 크롤링
+      await this.crawlCoupangPriceComparisonProvider.scrapePriceComparisonPages(
+        coupangPage,
+        winnerStatus,
+        cronId,
+        type,
       );
 
-      // 페이지로 이동
-      await coupangPage.goto(pageUrl);
-
-      // 응답 기다리기
-      const productListResponse = await responsePromise;
-
-      // 응답 데이터 가져오기
-      const responseData: {
-        totalSize: number;
-        page: number;
-        pageSize: number;
-        totalPages: number;
-        vendorItemIds: string | number | null;
-        result: CoupangPriceComparisonData[];
-      } = await productListResponse.json();
-
-      await this.coupangRepository.savePriceComparison(responseData.result);
-      console.log(
-        `${type}${cronId}: ${currentPage}/${responseData.totalPages} 페이지 - ${responseData.result.length}개 데이터 수집 완료`,
-      );
-
-      if (responseData.totalPages === currentPage) break;
-
-      currentPage++;
-
-      // 마지막 페이지가 아니라면 잠시 대기
-      if (currentPage <= responseData.totalPages) {
-        await coupangPage.waitForTimeout(1000);
-      }
+      console.log(`${type}${cronId}: 쿠팡 가격비교 크롤링 완료 (상태: ${winnerStatus})`);
+    } catch (error) {
+      console.error(`${type}${cronId}: 가격비교 크롤링 중 오류 발생`, error);
+    } finally {
+      await this.playwrightService.releaseContext(contextId);
     }
-
-    console.log(`${type}${cronId}: 쿠팡 가격비교 크롤링 완료`);
   }
 }

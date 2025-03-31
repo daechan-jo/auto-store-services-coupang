@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { Page, ElementHandle } from 'playwright';
+import moment from 'moment-timezone';
 
 /**
  * 쿠팡 윙 관리자 페이지에서 송장 업로드 기능을 제공하는 프로바이더
@@ -25,9 +26,21 @@ export class InvoiceUploaderProvider {
    * 페이지 로드 후 1초 대기하여 DOM이 완전히 렌더링되도록 합니다.
    */
   async navigateToDeliveryManagementPage(page: Page): Promise<void> {
-    await page.goto('https://wing.coupang.com/tenants/sfl-portal/delivery/management', {
-      timeout: 0,
-    });
+    // 한국 시간대 설정
+    const koreaTime = moment().tz('Asia/Seoul');
+
+    // 오늘 날짜 (endDate)
+    const endDate = koreaTime.format('YYYY-MM-DD');
+
+    // 한 달 전 날짜 (startDate)
+    const startDate = koreaTime.clone().subtract(30, 'days').format('YYYY-MM-DD');
+    // await page.goto('https://wing.coupang.com/tenants/sfl-portal/delivery/management', {
+    //   timeout: 0,
+    // });
+    await page.goto(
+      `https://wing.coupang.com/tenants/sfl-portal/delivery/management?deliverStatus=INSTRUCT&startDate=${startDate}&endDate=${endDate}`,
+      { timeout: 0 },
+    );
     await this.delay(1000);
   }
 
@@ -55,6 +68,7 @@ export class InvoiceUploaderProvider {
     });
 
     if (!found) {
+      await new Promise((resolve) => setTimeout(resolve, 1000000));
       throw new Error('Processing 버튼을 찾을 수 없습니다.');
     }
 
@@ -176,18 +190,33 @@ export class InvoiceUploaderProvider {
     name: string,
     safeNumber: string,
   ): Promise<ElementHandle | null> {
-    const matchingRowHandle = await page.evaluateHandle(
-      ({ name, safeNumber }) => {
-        const rows = Array.from(document.querySelectorAll('#tableContext tr'));
-        return rows.find((row) => {
-          const rowText = (row as HTMLElement).textContent || '';
-          return rowText.includes(name) && rowText.includes(safeNumber);
-        });
-      },
-      { name, safeNumber },
-    );
+    const nameSelector = `#tableContext span span:text("${name}")`;
 
-    return matchingRowHandle ? matchingRowHandle.asElement() : null;
+    try {
+      // 이름에 해당하는 요소 찾기
+      const nameElement = await page.waitForSelector(nameSelector, { timeout: 5000 });
+      if (!nameElement) return null;
+
+      // 이름 요소의 부모 tr 찾기
+      const row = await nameElement.evaluateHandle((el) => {
+        let current = el;
+        while (current && current.tagName !== 'TR') {
+          current = current.parentElement;
+        }
+        return current;
+      });
+
+      // 해당 행에서 전화번호도 확인
+      const hasPhoneNumber = await row.evaluate((row, number) => {
+        const rowText = (row as HTMLElement).textContent || '';
+        return rowText.includes(number);
+      }, safeNumber);
+
+      return hasPhoneNumber ? row.asElement() : null;
+    } catch (error) {
+      console.error('대안 방법 행 찾기 오류:', error);
+      return null;
+    }
   }
 
   /**
@@ -203,17 +232,26 @@ export class InvoiceUploaderProvider {
    */
   private async selectCheckbox(row: ElementHandle): Promise<void> {
     const checkbox = await row.$('input[type="checkbox"]');
-    if (checkbox) {
-      const isDisabled = await checkbox.isDisabled();
-      if (isDisabled) {
-        // disabled 속성 제거
-        await checkbox.evaluate((el) => {
-          (el as HTMLInputElement).removeAttribute('disabled');
-        });
-      }
-      // 강제 클릭
-      await checkbox.click({ force: true });
+
+    if (!checkbox) {
+      throw new Error('체크박스를 찾을 수 없습니다.');
     }
+
+    // 2. 체크박스가 비활성화되어 있는지 확인
+    const isDisabled = await checkbox.evaluate((el) => {
+      return (el as HTMLInputElement).disabled;
+    });
+
+    // 3. 비활성화된 경우 활성화
+    if (isDisabled) {
+      await checkbox.evaluate((el) => {
+        (el as HTMLInputElement).disabled = false;
+      });
+      console.log('비활성화된 체크박스 활성화 처리');
+    }
+
+    // 4. 체크박스 클릭
+    await checkbox.click({ force: true });
   }
 
   /**

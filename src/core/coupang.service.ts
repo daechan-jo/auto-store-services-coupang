@@ -1,7 +1,9 @@
 import {
   AdjustData,
   CoupangComparisonWithOnchData,
+  CoupangInvoice,
   CronType,
+  InvoiceUploadResult,
   OnchWithCoupangProduct,
 } from '@daechanjo/models';
 import { RabbitMQService } from '@daechanjo/rabbitmq';
@@ -155,11 +157,12 @@ export class CoupangService {
     console.log(`${type}${cronId}: 총 ${updatedItems.length}개의 아이템 업데이트`);
 
     for (const [i, item] of updatedItems.entries()) {
-      const progress = Math.floor(((i + 1) / updatedItems.length) * 100);
-      if (progress % 10 === 0)
+      if (i % Math.ceil(updatedItems.length / 10) === 0) {
+        const progressPercentage = ((i + 1) / updatedItems.length) * 100;
         console.log(
-          `${type}${cronId}: 가격 업데이트 중 ${i + 1}/${updatedItems.length} - ${progress}%`,
+          `${type}${cronId}: 가격 업데이트중 ${i + 1}/${updatedItems.length} (${progressPercentage.toFixed(2)}%)`,
         );
+      }
 
       const vendorItemId = item.vendorItemId;
 
@@ -267,5 +270,54 @@ export class CoupangService {
 
   async getComparisonCount() {
     return this.coupangRepository.getComparisonCount();
+  }
+
+  /**
+   * 쿠팡 송장 정보를 순차적으로 업로드합니다.
+   * @param cronId 크론 작업 ID
+   * @param type 작업 유형
+   * @param invoices 업로드할 송장 목록
+   */
+  async uploadInvoices(
+    cronId: string,
+    type: string,
+    invoices: CoupangInvoice[],
+  ): Promise<InvoiceUploadResult[]> {
+    const results: InvoiceUploadResult[] = [];
+
+    for (const invoice of invoices) {
+      const result: InvoiceUploadResult = {
+        orderId: invoice.orderId,
+        status: 'failed', // 기본값은 실패로 설정
+        courierName: invoice.courier?.courier || invoice.courierName || '',
+        trackingNumber: invoice.courier?.trackNumber || invoice.invoiceNumber || '',
+        name: invoice.receiver?.name || '',
+        safeNumber: invoice.receiver?.safeNumber || '',
+        error: '',
+      };
+
+      try {
+        // 송장 업로드 시도
+        await this.coupangApiService.uploadInvoice(cronId, type, invoice);
+
+        // 성공 시 상태 업데이트
+        result.status = 'success';
+      } catch (error: any) {
+        // 오류 메시지 저장
+        result.error = error.message || '알 수 없는 오류';
+        console.error(
+          `${type}${cronId}: 주문 ${invoice.orderId} 송장 업로드 실패\n`,
+          error.response?.data || error.message,
+        );
+      }
+
+      // 결과 배열에 추가
+      results.push(result);
+
+      // 요청 간 간격 두기
+      await new Promise((resolve) => setTimeout(resolve, 500));
+    }
+
+    return results;
   }
 }

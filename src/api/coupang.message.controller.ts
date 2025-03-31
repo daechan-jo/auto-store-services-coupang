@@ -27,15 +27,20 @@ export class CoupangMessageController {
         await this.coupangCrawlerService.orderStatusUpdate(payload.cronId, payload.type);
         break;
 
-      case 'invoiceUpload':
-        return await this.coupangCrawlerService.invoiceUpload(
+      case 'uploadInvoices':
+        const result = await this.coupangService.uploadInvoices(
           payload.cronId,
-          payload.updatedOrders,
           payload.type,
+          payload.invoices,
         );
+        return { status: 'success', data: result };
 
       case 'crawlCoupangPriceComparison':
-        await this.coupangCrawlerService.crawlCoupangPriceComparison(payload.cronId, payload.type);
+        await this.coupangCrawlerService.crawlCoupangPriceComparison(
+          payload.cronId,
+          payload.type,
+          payload.winnerStatus,
+        );
         return 'success';
 
       case 'deleteConfirmedCoupangProduct':
@@ -118,6 +123,14 @@ export class CoupangMessageController {
       case 'getComparisonCount':
         const count = await this.coupangService.getComparisonCount();
         return { status: 'success', data: count };
+
+      case 'putOrderStatus':
+        await this.coupangApiService.putOrderStatus(
+          payload.cronId,
+          payload.type,
+          payload.shipmentBoxIds,
+        );
+        break;
 
       default:
         console.error(

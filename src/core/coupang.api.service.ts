@@ -1,4 +1,4 @@
-import { CoupangOrderInfo, CoupangProduct, CronType } from '@daechanjo/models';
+import { CoupangInvoice, CoupangOrderInfo, CoupangProduct, CronType } from '@daechanjo/models';
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios, { AxiosResponse } from 'axios';
@@ -386,5 +386,103 @@ export class CoupangApiService {
         'X-Coupang-Date': datetime,
       },
     });
+  }
+
+  async putOrderStatus(cronId: string, type: string, shipmentBoxIds: number[]): Promise<void> {
+    console.log(`${type}${cronId}: 주문 상태 변경`);
+    const vendorId = this.configService.get<string>('COUPANG_VENDOR_ID');
+    const updatePath = `/v2/providers/openapi/apis/api/v4/vendors/${vendorId}/ordersheets/acknowledgement`;
+    const body = { vendorId: vendorId, shipmentBoxIds: shipmentBoxIds };
+
+    const { authorization, datetime } = await this.signatureService.createHmacSignature(
+      'PUT',
+      updatePath,
+      '',
+      false,
+    );
+
+    try {
+      await axios.put(`https://api-gateway.coupang.com${updatePath}`, body, {
+        headers: {
+          Authorization: authorization,
+          'Content-Type': 'application/json;charset=UTF-8',
+          'X-Coupang-Date': datetime,
+        },
+      });
+    } catch (error: any) {
+      console.error(`${CronType.ERROR}${type}${cronId}: 변경 실패\n`, error);
+    }
+  }
+
+  /**
+   * 단일 송장을 업로드하고 지정된 시간만큼 대기합니다.
+   * @param cronId 크론 작업 ID
+   * @param type 작업 유형
+   * @param invoice 업로드할 송장 정보
+   */
+  async uploadInvoice(cronId: string, type: string, invoice: CoupangInvoice) {
+    const vendorId = this.configService.get<string>('COUPANG_VENDOR_ID');
+    const path = `/v2/providers/openapi/apis/api/v4/vendors/${vendorId}/orders/invoices`;
+    const body = {
+      vendorId: vendorId,
+      orderSheetInvoiceApplyDtos: [
+        {
+          shipmentBoxId: invoice.shipmentBoxId,
+          orderId: invoice.orderId,
+          deliveryCompanyCode: invoice.deliveryCompanyCode,
+          invoiceNumber: invoice.courier.trackNumber,
+          vendorItemId: invoice.orderItems[0].vendorItemId,
+          splitShipping: false,
+          preSplitShipped: false,
+          estimatedShippingDate: '',
+        },
+      ],
+    };
+    console.log('바디\n', JSON.stringify(body, null, 2));
+
+    const { authorization, datetime } = await this.signatureService.createHmacSignature(
+      'POST',
+      path,
+      '',
+      false,
+    );
+
+    try {
+      const result = await axios.post(`https://api-gateway.coupang.com${path}`, body, {
+        headers: {
+          Authorization: authorization,
+          'Content-Type': 'application/json;charset=UTF-8',
+          'X-Coupang-Date': datetime,
+        },
+      });
+      console.log('결과\n', JSON.stringify(result.data, null, 2));
+      console.log(result.data.data.responseMessage);
+      if (result.data.data.responseMessage === 'FAIL') throw new Error(result.data);
+    } catch (error: any) {
+      console.error(`${CronType.ERROR}${type}${cronId}: 실패\n`, error);
+      throw new Error(error);
+    }
+  }
+
+  async getOrder() {
+    const vendorId = this.configService.get<string>('COUPANG_VENDOR_ID');
+    // "shipmentBoxId": 909295085462491100, 909295085462491100
+    const path = `/v2/providers/openapi/apis/api/v4/vendors/${vendorId}/25100104633733/ordersheets`;
+
+    const { authorization, datetime } = await this.signatureService.createHmacSignature(
+      'GET',
+      path,
+      '',
+      false,
+    );
+
+    const result = await axios.get(`https://api-gateway.coupang.com${path}`, {
+      headers: {
+        Authorization: authorization,
+        'Content-Type': 'application/json;charset=UTF-8',
+        'X-Coupang-Date': datetime,
+      },
+    });
+    console.log(JSON.stringify(result.data, null, 2));
   }
 }
