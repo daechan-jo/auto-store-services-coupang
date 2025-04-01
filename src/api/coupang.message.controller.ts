@@ -65,14 +65,10 @@ export class CoupangMessageController {
         );
         return { status: 'success', data: coupangProduct };
 
-      case 'getCoupangOrderList':
-        const coupangOrderList = await this.coupangApiService.getCoupangOrderList(
+      case 'newGetCoupangOrderList':
+        const coupangOrderList = await this.coupangCrawlerService.newGetCoupangOrderList(
           payload.cronId,
           payload.type,
-          payload.status,
-          payload.vendorId,
-          payload.today,
-          payload.yesterday,
         );
         return { status: 'success', data: coupangOrderList };
 

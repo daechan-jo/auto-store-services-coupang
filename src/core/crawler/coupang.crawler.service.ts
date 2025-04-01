@@ -1,4 +1,4 @@
-import { CoupangExtractDetail, CoupangPriceComparisonData, CronType } from '@daechanjo/models';
+import { CoupangExtractDetail, CronType } from '@daechanjo/models';
 import { PlaywrightService } from '@daechanjo/playwright';
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -342,6 +342,57 @@ export class CoupangCrawlerService {
       console.log(`${type}${cronId}: 쿠팡 가격비교 크롤링 완료 (상태: ${winnerStatus})`);
     } catch (error) {
       console.error(`${type}${cronId}: 가격비교 크롤링 중 오류 발생`, error);
+    } finally {
+      await this.playwrightService.releaseContext(contextId);
+    }
+  }
+
+  async newGetCoupangOrderList(cronId: string, type: string) {
+    const store = this.configService.get<string>('STORE');
+    const contextId = `context-${type}-${cronId}}`;
+    const pageId = `page-${type}-${cronId}}`;
+
+    try {
+      // 쿠팡 윙 로그인 및 페이지 객체 가져오기
+      const coupangPage = await this.playwrightService.loginToCoupangSite(contextId, pageId);
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
+      const pageUrl = `https://wing.coupang.com/tenants/sfl-portal/delivery/management`;
+
+      // API 응답 캐치 설정
+      const responsePromise = coupangPage.waitForResponse((response) => {
+        const url = response.url();
+
+        // 기본 URL 패턴 확인
+        if (!url.includes('delivery/management/dashboard/search') || response.status() !== 200) {
+          return false;
+        }
+
+        try {
+          // URL에서 condition 파라미터 추출
+          const urlObj = new URL(url);
+          const conditionParam = urlObj.searchParams.get('condition');
+
+          if (!conditionParam) return false;
+
+          // condition JSON 파싱
+          const condition = JSON.parse(conditionParam);
+
+          // page가 1이고 nextShipmentBoxId가 null인 첫 번째 요청만 캐치
+          return condition.page === 1 && condition.nextShipmentBoxId === null;
+        } catch (error) {
+          return false;
+        }
+      });
+
+      await coupangPage.goto(pageUrl);
+
+      // 응답 기다리기
+      const productListResponse = await responsePromise;
+
+      // 응답 데이터 가져오기
+      return await productListResponse.text();
+    } catch (error) {
     } finally {
       await this.playwrightService.releaseContext(contextId);
     }

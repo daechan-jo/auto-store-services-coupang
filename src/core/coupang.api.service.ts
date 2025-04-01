@@ -388,7 +388,7 @@ export class CoupangApiService {
     });
   }
 
-  async putOrderStatus(cronId: string, type: string, shipmentBoxIds: number[]): Promise<void> {
+  async putOrderStatus(cronId: string, type: string, shipmentBoxIds: string[]): Promise<void> {
     console.log(`${type}${cronId}: 주문 상태 변경`);
     const vendorId = this.configService.get<string>('COUPANG_VENDOR_ID');
     const updatePath = `/v2/providers/openapi/apis/api/v4/vendors/${vendorId}/ordersheets/acknowledgement`;
@@ -402,13 +402,14 @@ export class CoupangApiService {
     );
 
     try {
-      await axios.put(`https://api-gateway.coupang.com${updatePath}`, body, {
+      const result = await axios.put(`https://api-gateway.coupang.com${updatePath}`, body, {
         headers: {
           Authorization: authorization,
           'Content-Type': 'application/json;charset=UTF-8',
           'X-Coupang-Date': datetime,
         },
       });
+      console.log(JSON.stringify(result.data, null, 2));
     } catch (error: any) {
       console.error(`${CronType.ERROR}${type}${cronId}: 변경 실패\n`, error);
     }
