@@ -22,6 +22,7 @@ import { CoupangComparisonEntity } from './infrastructure/entities/coupangCompar
 import { CoupangProductEntity } from './infrastructure/entities/coupangProduct.entity';
 import { CoupangUpdateItemEntity } from './infrastructure/entities/coupangUpdateItem.entity';
 import { CoupangRepository } from './infrastructure/repository/coupang.repository';
+import { CrawlCoupangPriceComparisonProvider } from './core/crawler/provider/crawlCoupangPriceComparison.provider';
 
 @Module({
   imports: [
@@ -73,6 +74,7 @@ import { CoupangRepository } from './infrastructure/repository/coupang.repositor
     InvoiceUploaderProvider,
     DeleteConfirmedCoupangProductProvider,
     CrawlCoupangDetailProductsProvider,
+    CrawlCoupangPriceComparisonProvider,
   ],
 })
 export class AppModule implements OnApplicationBootstrap, OnModuleInit {
@@ -87,7 +89,7 @@ export class AppModule implements OnApplicationBootstrap, OnModuleInit {
     setTimeout(async () => {
       await this.playwrightService.init(true, 'chromium');
       // await this.coupangCrawlerService.crawlCoupangPriceComparison('test', 'test');
-      await this.coupangApiService.getOrder();
+      // await this.coupangApiService.getOrder();
     });
   }
 
