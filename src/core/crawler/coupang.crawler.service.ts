@@ -1,4 +1,4 @@
-import { CoupangExtractDetail, CronType } from '@daechanjo/models';
+import { CoupangExtractDetail, CronType, OrderStatus } from '@daechanjo/models';
 import { PlaywrightService } from '@daechanjo/playwright';
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -347,18 +347,28 @@ export class CoupangCrawlerService {
     }
   }
 
-  async newGetCoupangOrderList(cronId: string, type: string) {
-    const store = this.configService.get<string>('STORE');
+  async newGetCoupangOrderList(cronId: string, type: string, status: OrderStatus) {
     const contextId = `context-${type}-${cronId}}`;
     const pageId = `page-${type}-${cronId}}`;
+
+    const today = new Date();
+    const twoWeeksAgo = new Date();
+    twoWeeksAgo.setDate(today.getDate() - 14);
+
+    const formatDate = (date: Date) => {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
 
     try {
       // 쿠팡 윙 로그인 및 페이지 객체 가져오기
       const coupangPage = await this.playwrightService.loginToCoupangSite(contextId, pageId);
       await new Promise((resolve) => setTimeout(resolve, 1000));
 
-      const pageUrl = `https://wing.coupang.com/tenants/sfl-portal/delivery/management`;
-
+      // const pageUrl = `https://wing.coupang.com/tenants/sfl-portal/delivery/management`;
+      const pageUrl = `https://wing.coupang.com/tenants/sfl-portal/delivery/management?deliverStatus=${status}&startDate=${formatDate(twoWeeksAgo)}&endDate=${formatDate(today)}`;
       // API 응답 캐치 설정
       const responsePromise = coupangPage.waitForResponse((response) => {
         const url = response.url();

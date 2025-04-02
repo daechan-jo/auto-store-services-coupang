@@ -1,4 +1,4 @@
-import { CoupangInvoice, CoupangOrderInfo, CoupangProduct, CronType } from '@daechanjo/models';
+import { CoupangInvoice, CoupangProduct, CronType } from '@daechanjo/models';
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios, { AxiosResponse } from 'axios';
@@ -182,92 +182,6 @@ export class CoupangApiService {
   }
 
   /**
-   * 쿠팡 오픈 API를 통해 주문서 목록 조회
-   *
-   * @param cronId - 현재 실행 중인 크론 작업의 고유 식별자
-   * @param type - 로그 메시지에 포함될 작업 유형 식별자
-   * @param status - 조회할 주문 상태 (예: ACCEPT, PREPARE, SHIP 등)
-   * @param vendorId - 판매자 ID
-   * @param today - 조회 종료일 (YYYY-MM-DD 형식)
-   * @param yesterday - 조회 시작일 (YYYY-MM-DD 형식)
-   *
-   * @returns {Promise<CoupangOrderInfo[]>} - 주문서 목록을 포함하는 Promise
-   *
-   * @throws {Error} - API 요청 실패 시 발생하는 오류
-   *
-   * @description
-   * 이 메서드는 다음 단계로 진행됩니다:
-   * 1. 쿠팡 오픈 API에 페이징 방식으로 주문서 조회 요청
-   * 2. 요청 파라미터에 날짜 범위와 주문 상태를 지정
-   * 3. nextToken을 사용하여 모든 페이지를 순차적으로 조회
-   * 4. 각 페이지에서 받은 주문 데이터를 누적하여 저장
-   * 5. 모든 페이지 조회 완료 후 전체 주문 목록 반환
-   *
-   * API 요청 중 오류가 발생하면 로그를 남기고 예외를 발생시킵니다.
-   */
-  async getCoupangOrderList(
-    cronId: string,
-    type: string,
-    status: string,
-    vendorId: string,
-    today: string,
-    yesterday: string,
-  ): Promise<CoupangOrderInfo[]> {
-    const apiPath = `/v2/providers/openapi/apis/api/v4/vendors/${vendorId}/ordersheets`;
-
-    let nextToken = '';
-    const allProducts = [];
-    try {
-      while (true) {
-        const { authorization, datetime } = await this.signatureService.createParamHmacSignature(
-          'GET',
-          apiPath,
-          {
-            vendorId,
-            createdAtFrom: yesterday,
-            createdAtTo: today,
-            status: status,
-            nextToken: nextToken,
-            maxPerPage: 50,
-          },
-        );
-
-        const response = await axios.get(`https://api-gateway.coupang.com${apiPath}`, {
-          headers: {
-            Authorization: authorization,
-            'Content-Type': 'application/json;charset=UTF-8',
-            'X-EXTENDED-TIMEOUT': '90000',
-            'X-Coupang-Date': datetime,
-          },
-          params: {
-            vendorId: this.configService.get<string>('COUPANG_VENDOR_ID'),
-            createdAtFrom: yesterday,
-            createdAtTo: today,
-            status: status,
-            nextToken: nextToken,
-            maxPerPage: 50,
-          },
-        });
-
-        const { data } = response.data;
-        allProducts.push(...data);
-
-        nextToken = response.data.nextToken;
-        if (!nextToken) break;
-      }
-
-      return allProducts;
-    } catch (error: any) {
-      console.error(
-        `${CronType.ERROR}${type}${cronId}: API 요청 오류\n`,
-        error.response?.data || error.message,
-      );
-
-      throw new Error('쿠팡 API 요청 실패');
-    }
-  }
-
-  /**
    * 쿠팡 판매자 API를 통해 특정 상품의 판매를 중지
    *
    * @param cronId - 현재 실행 중인 크론 작업의 고유 식별자
@@ -432,14 +346,13 @@ export class CoupangApiService {
           orderId: invoice.orderId,
           deliveryCompanyCode: invoice.deliveryCompanyCode,
           invoiceNumber: invoice.courier.trackNumber,
-          vendorItemId: invoice.orderItems[0].vendorItemId,
+          vendorItemId: invoice.items[0].vendorItemId,
           splitShipping: false,
           preSplitShipped: false,
           estimatedShippingDate: '',
         },
       ],
     };
-    console.log('바디\n', JSON.stringify(body, null, 2));
 
     const { authorization, datetime } = await this.signatureService.createHmacSignature(
       'POST',
@@ -456,8 +369,7 @@ export class CoupangApiService {
           'X-Coupang-Date': datetime,
         },
       });
-      console.log('결과\n', JSON.stringify(result.data, null, 2));
-      console.log(result.data.data.responseMessage);
+
       if (result.data.data.responseMessage === 'FAIL') throw new Error(result.data);
     } catch (error: any) {
       console.error(`${CronType.ERROR}${type}${cronId}: 실패\n`, error);

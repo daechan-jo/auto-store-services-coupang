@@ -69,6 +69,7 @@ export class CoupangMessageController {
         const coupangOrderList = await this.coupangCrawlerService.newGetCoupangOrderList(
           payload.cronId,
           payload.type,
+          payload.status,
         );
         return { status: 'success', data: coupangOrderList };
 

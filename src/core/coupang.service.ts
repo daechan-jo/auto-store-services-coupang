@@ -289,10 +289,10 @@ export class CoupangService {
       const result: InvoiceUploadResult = {
         orderId: invoice.orderId,
         status: 'failed', // 기본값은 실패로 설정
-        courierName: invoice.courier?.courier || invoice.courierName || '',
-        trackingNumber: invoice.courier?.trackNumber || invoice.invoiceNumber || '',
-        name: invoice.receiver?.name || '',
-        safeNumber: invoice.receiver?.safeNumber || '',
+        courierName: invoice.courier.courier,
+        trackingNumber: invoice.courier.trackNumber,
+        name: invoice.courier.nameText,
+        safeNumber: invoice.courier.phoneText,
         error: '',
       };
 
