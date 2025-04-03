@@ -1,4 +1,4 @@
-import { CronType, RabbitmqMessage } from '@daechanjo/models';
+import { JobType, RabbitmqMessage } from '@daechanjo/models';
 import { InjectQueue } from '@nestjs/bull';
 import { Controller } from '@nestjs/common';
 import { MessagePattern } from '@nestjs/microservices';
@@ -20,88 +20,88 @@ export class CoupangMessageController {
   @MessagePattern('coupang-queue')
   async processMessage(message: RabbitmqMessage) {
     const { pattern, payload } = message;
-    console.log(`${payload.type}${payload.cronId}: 📬${pattern}`);
+    console.log(`${payload.jobType}${payload.jobId}: 📬${pattern}`);
 
     switch (pattern) {
       case 'orderStatusUpdate':
-        await this.coupangCrawlerService.orderStatusUpdate(payload.cronId, payload.type);
+        await this.coupangCrawlerService.orderStatusUpdate(payload.jobId, payload.jobType);
         break;
 
       case 'uploadInvoices':
         const result = await this.coupangService.uploadInvoices(
-          payload.cronId,
-          payload.type,
-          payload.invoices,
+          payload.jobId,
+          payload.jobType,
+          payload.data,
         );
         return { status: 'success', data: result };
 
       case 'crawlCoupangPriceComparison':
         await this.coupangCrawlerService.crawlCoupangPriceComparison(
-          payload.cronId,
-          payload.type,
-          payload.winnerStatus,
+          payload.jobId,
+          payload.jobType,
+          payload.data,
         );
         return 'success';
 
       case 'deleteConfirmedCoupangProduct':
         const matchedProducts = await this.coupangCrawlerService.deleteConfirmedCoupangProduct(
-          payload.cronId,
-          payload.type,
+          payload.jobId,
+          payload.jobType,
         );
         return { status: 'success', data: matchedProducts };
 
       case 'getProductListPaging':
         const coupangProducts = await this.coupangApiService.getProductListPaging(
-          payload.cronId,
-          payload.type,
+          payload.jobId,
+          payload.jobType,
         );
         return { status: 'success', data: coupangProducts };
 
       case 'getProductDetail':
         const coupangProduct = await this.coupangApiService.getProductDetail(
-          payload.cronId,
-          payload.type,
-          payload.sellerProductId,
+          payload.jobId,
+          payload.jobType,
+          payload.data,
         );
         return { status: 'success', data: coupangProduct };
 
       case 'newGetCoupangOrderList':
         const coupangOrderList = await this.coupangCrawlerService.newGetCoupangOrderList(
-          payload.cronId,
-          payload.type,
-          payload.status,
+          payload.jobId,
+          payload.jobType,
+          payload.data,
         );
         return { status: 'success', data: coupangOrderList };
 
       case 'putStopSellingItem':
         await this.coupangApiService.putStopSellingItem(
-          payload.cronId,
-          payload.type,
-          payload.vendorItemId,
+          payload.jobId,
+          payload.jobType,
+          payload.data,
         );
         break;
 
       case 'stopSaleBySellerProductId':
         await this.coupangService.stopSaleBySellerProductId(
-          payload.cronId,
-          payload.type,
+          payload.jobId,
+          payload.jobType,
           payload.data,
         );
         return { status: 'success' };
 
       case 'deleteBySellerProductId':
-        await this.coupangService.deleteProducts(payload.cronId, payload.type, payload.data);
+        await this.coupangService.deleteProducts(payload.jobId, payload.jobType, payload.data);
         return { status: 'success' };
 
       case 'coupangProductsPriceControl':
-        await this.coupangService.coupangProductsPriceControl(payload.cronId, payload.type);
+        await this.coupangService.coupangProductsPriceControl(payload.jobId, payload.jobType);
         break;
 
       case 'shippingCostManagement':
         const shippingCostResult = await this.coupangService.shippingCostManagement(
-          payload.cronId,
-          payload.coupangProductDetails,
-          payload.type,
+          payload.jobId,
+          payload.jobType,
+          payload.data,
         );
         return { status: 'success', data: shippingCostResult };
 
@@ -111,9 +111,9 @@ export class CoupangMessageController {
 
       case 'saveUpdateCoupangItems':
         await this.coupangService.saveUpdateCoupangItems(
-          payload.cronId,
-          payload.type,
-          payload.items,
+          payload.jobId,
+          payload.jobType,
+          payload.data,
         );
         return { status: 'success' };
 
@@ -122,16 +122,12 @@ export class CoupangMessageController {
         return { status: 'success', data: count };
 
       case 'putOrderStatus':
-        await this.coupangApiService.putOrderStatus(
-          payload.cronId,
-          payload.type,
-          payload.shipmentBoxIds,
-        );
+        await this.coupangApiService.putOrderStatus(payload.jobId, payload.jobType, payload.data);
         break;
 
       default:
         console.error(
-          `${CronType.ERROR}${payload.type}${payload.cronId}: 📬알 수 없는 패턴 유형 ${pattern}`,
+          `${JobType.ERROR}${payload.jobType}${payload.jobId}: 📬알 수 없는 패턴 유형 ${pattern}`,
         );
         return { status: 'error', message: `알 수 없는 패턴 유형: ${pattern}` };
     }

@@ -94,8 +94,8 @@ export class InvoiceUploaderProvider {
    *
    * @param page - Playwright의 Page 객체
    * @param order - 처리할 주문 정보 객체 (courier, receiver 정보 포함)
-   * @param type - 로그 메시지에 포함될 작업 유형 식별자
-   * @param cronId - 현재 실행 중인 크론 작업의 고유 식별자
+   * @param jobType - 로그 메시지에 포함될 작업 유형 식별자
+   * @param jobId - 현재 실행 중인 크론 작업의 고유 식별자
    * @returns {Promise<Object>} - 송장 업로드 처리 결과를 담은 객체
    *
    * @description
@@ -109,7 +109,7 @@ export class InvoiceUploaderProvider {
    * 각 단계에서 발생하는 오류를 처리하고, 작업 결과를 상세히 기록하여 반환합니다.
    * 주문을 찾지 못한 경우 페이지네이션을 통해 다음 페이지로 이동하며 검색을 계속합니다.
    */
-  async processOrder(page: Page, order: any, type: string, cronId: string): Promise<any> {
+  async processOrder(page: Page, order: any, jobType: string, jobId: string): Promise<any> {
     const { courier, trackingNumber } = order.courier;
     const { name, safeNumber } = order.receiver;
 
@@ -133,7 +133,7 @@ export class InvoiceUploaderProvider {
         const matchingRow = await this.findMatchingRow(page, name, safeNumber);
 
         if (matchingRow) {
-          console.log(`${type}${cronId}: 일치하는 행을 찾았습니다 ${name} ${safeNumber}`);
+          console.log(`${jobType}${jobId}: 일치하는 행을 찾았습니다 ${name} ${safeNumber}`);
           found = true;
 
           // 체크박스 선택
@@ -152,12 +152,12 @@ export class InvoiceUploaderProvider {
           await this.clickProcessingButton(page);
         } else {
           // 다음 페이지로 이동 시도
-          const hasNextPage = await this.navigateToNextPage(page, currentPage, type, cronId);
+          const hasNextPage = await this.navigateToNextPage(page, currentPage, jobType, jobId);
 
           if (hasNextPage) {
             currentPage++;
           } else {
-            console.log(`${type}${cronId}: 더 이상 페이지가 없습니다 ${name}, ${safeNumber}`);
+            console.log(`${jobType}${jobId}: 더 이상 페이지가 없습니다 ${name}, ${safeNumber}`);
             result.error = '대기중인 상품을 찾을 수 없음';
             break;
           }
@@ -338,8 +338,8 @@ export class InvoiceUploaderProvider {
    *
    * @param page - Playwright의 Page 객체
    * @param currentPage - 현재 페이지 번호
-   * @param type - 로그 메시지에 포함될 작업 유형 식별자
-   * @param cronId - 현재 실행 중인 크론 작업의 고유 식별자
+   * @param jobType - 로그 메시지에 포함될 작업 유형 식별자
+   * @param jobId - 현재 실행 중인 크론 작업의 고유 식별자
    * @returns {Promise<boolean>} - 다음 페이지 이동 성공 여부 (성공: true, 실패: false)
    *
    * @description
@@ -351,14 +351,14 @@ export class InvoiceUploaderProvider {
   private async navigateToNextPage(
     page: Page,
     currentPage: number,
-    type: string,
-    cronId: string,
+    jobType: string,
+    jobId: string,
   ): Promise<boolean> {
     await this.delay(1000);
     const nextPage = await page.$(`span[data-wuic-attrs^="page:${currentPage + 1}"] a`);
 
     if (nextPage) {
-      console.log(`${type}${cronId}: 다음 페이지로 이동: ${currentPage + 1}`);
+      console.log(`${jobType}${jobId}: 다음 페이지로 이동: ${currentPage + 1}`);
       await nextPage.click();
       await page.waitForSelector('#tableContext', { timeout: 5000 });
       await this.delay(1000);

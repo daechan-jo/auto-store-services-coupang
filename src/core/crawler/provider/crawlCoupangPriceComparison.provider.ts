@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { Page } from 'playwright';
-import { CoupangPriceComparisonData } from '@daechanjo/models';
+import { CoupangPriceComparisonData, WinnerStatus } from '@daechanjo/models';
 import { CoupangRepository } from '../../../infrastructure/repository/coupang.repository';
 
 @Injectable()
@@ -12,15 +12,15 @@ export class CrawlCoupangPriceComparisonProvider {
    *
    * @param coupangPage - Playwright의 Page 객체
    * @param winnerStatus - 가격 경쟁 상태 (WIN_NOT_SUPPRESSED 또는 LOSE_NOT_SUPPRESSED)
-   * @param cronId - 크론 작업 식별자
-   * @param type - 로그 유형
+   * @param jobId - 크론 작업 식별자
+   * @param jobType - 로그 유형
    * @returns {Promise<void>} - 스크래핑 완료 후 Promise 반환
    */
   async scrapePriceComparisonPages(
     coupangPage: Page,
-    winnerStatus: 'LOSE_NOT_SUPPRESSED' | 'WIN_NOT_SUPPRESSED',
-    cronId: string,
-    type: string,
+    winnerStatus: WinnerStatus,
+    jobId: string,
+    jobType: string,
   ): Promise<void> {
     let currentPage = 1;
 
@@ -53,7 +53,7 @@ export class CrawlCoupangPriceComparisonProvider {
       // 데이터 저장
       await this.coupangRepository.savePriceComparison(responseData.result);
       console.log(
-        `${type}${cronId}: ${currentPage}/${responseData.totalPages} 페이지 - ${responseData.result.length}개 데이터 수집 완료`,
+        `${jobType}${jobId}: ${currentPage}/${responseData.totalPages} 페이지 - ${responseData.result.length}개 데이터 수집 완료`,
       );
 
       // 마지막 페이지 확인

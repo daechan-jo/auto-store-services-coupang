@@ -2,7 +2,7 @@ import {
   AdjustData,
   CoupangComparisonWithOnchData,
   CoupangInvoice,
-  CronType,
+  JobType,
   InvoiceUploadResult,
   OnchWithCoupangProduct,
 } from '@daechanjo/models';
@@ -28,13 +28,13 @@ export class CoupangService {
   ) {}
 
   async stopSaleBySellerProductId(
-    cronId: string,
-    type: string,
+    jobId: string,
+    jobType: string,
     data: OnchWithCoupangProduct[] | CoupangComparisonWithOnchData[],
   ) {
-    console.log(`${type}${cronId}: 쿠팡 아이템 판매 중지 시작`);
+    console.log(`${jobType}${jobId}: 쿠팡 아이템 판매 중지 시작`);
     if (data.length === 0) {
-      console.warn(`${type}${cronId}: 중지할 아이템이 없습니다`);
+      console.warn(`${jobType}${jobId}: 중지할 아이템이 없습니다`);
     }
     const detailedProducts = [];
 
@@ -42,16 +42,16 @@ export class CoupangService {
       if (i % Math.ceil(data.length / 10) === 0) {
         const progressPercentage = ((i + 1) / data.length) * 100;
         console.log(
-          `${type}${cronId}: 중지 상품 상세조회중 ${i + 1}/${data.length} (${progressPercentage.toFixed(2)}%)`,
+          `${jobType}${jobId}: 중지 상품 상세조회중 ${i + 1}/${data.length} (${progressPercentage.toFixed(2)}%)`,
         );
       }
 
       const productId =
-        type === CronType.SOLDOUT
+        jobType === JobType.SOLDOUT
           ? +(product as OnchWithCoupangProduct).sellerProductId
           : (product as CoupangComparisonWithOnchData).vendorInventoryId;
 
-      const details = await this.coupangApiService.getProductDetail(cronId, type, productId);
+      const details = await this.coupangApiService.getProductDetail(jobId, jobType, productId);
       detailedProducts.push(details);
       await new Promise((resolve) => setTimeout(resolve, 500));
     }
@@ -60,7 +60,7 @@ export class CoupangService {
       if (i % Math.ceil(detailedProducts.length / 10) === 0) {
         const progressPercentage = ((i + 1) / detailedProducts.length) * 100;
         console.log(
-          `${type}${cronId}: 아이템 중지중 ${i + 1}/${detailedProducts.length} (${progressPercentage.toFixed(2)}%)`,
+          `${jobType}${jobId}: 아이템 중지중 ${i + 1}/${detailedProducts.length} (${progressPercentage.toFixed(2)}%)`,
         );
       }
 
@@ -68,7 +68,7 @@ export class CoupangService {
         const items = productDetail.items;
 
         for (const item of items) {
-          await this.coupangApiService.putStopSellingItem(cronId, type, item.vendorItemId);
+          await this.coupangApiService.putStopSellingItem(jobId, jobType, item.vendorItemId);
           await new Promise((resolve) => setTimeout(resolve, 500));
         }
       }
@@ -78,13 +78,13 @@ export class CoupangService {
   }
 
   async deleteProducts(
-    cronId: string,
-    type: string,
+    jobId: string,
+    jobType: string,
     data: OnchWithCoupangProduct[] | CoupangComparisonWithOnchData[],
   ) {
-    console.log(`${type}${cronId}: 쿠팡 상품 삭제 시작`);
+    console.log(`${jobType}${jobId}: 쿠팡 상품 삭제 시작`);
     if (data.length === 0) {
-      console.warn(`${type}${cronId}: 삭제할 상품이 없습니다`);
+      console.warn(`${jobType}${jobId}: 삭제할 상품이 없습니다`);
       return;
     }
 
@@ -93,17 +93,17 @@ export class CoupangService {
       if (i % Math.ceil(data.length / 10) === 0) {
         const progressPercentage = ((i + 1) / data.length) * 100;
         console.log(
-          `${type}${cronId}: 아이템 삭제중 ${i + 1}/${data.length} (${progressPercentage.toFixed(2)}%)`,
+          `${jobType}${jobId}: 아이템 삭제중 ${i + 1}/${data.length} (${progressPercentage.toFixed(2)}%)`,
         );
       }
 
       const productId =
-        type === CronType.SOLDOUT
+        jobType === JobType.SOLDOUT
           ? +(product as OnchWithCoupangProduct).sellerProductId
           : (product as CoupangComparisonWithOnchData).vendorInventoryId;
 
       const productName =
-        type === CronType.SOLDOUT
+        jobType === JobType.SOLDOUT
           ? (product as OnchWithCoupangProduct).sellerProductName
           : (product as CoupangComparisonWithOnchData).productName;
 
@@ -118,7 +118,7 @@ export class CoupangService {
         await new Promise((resolve) => setTimeout(resolve, 500));
       } catch (error: any) {
         console.error(
-          `${CronType.ERROR}${type}${cronId}: 쿠팡 상품 삭제 실패-${productId})\n`,
+          `${JobType.ERROR}${jobType}${jobId}: 쿠팡 상품 삭제 실패-${productId})\n`,
           error.response?.data || error.message,
         );
       }
@@ -128,39 +128,39 @@ export class CoupangService {
       try {
         await this.rabbitmqService.emit('mail-queue', 'sendBatchDeletionEmail', {
           deletedProducts: deletedProducts,
-          type: type,
+          jobType: jobType,
           store: this.configService.get<string>('STORE'),
           platformName: 'coupang',
         });
       } catch (error: any) {
         console.error(
-          `${CronType.ERROR}${type}${cronId}: 삭제 알림 이메일 발송 실패\n`,
+          `${JobType.ERROR}${jobType}${jobId}: 삭제 알림 이메일 발송 실패\n`,
           error.response?.data || error.message,
         );
       }
     }
   }
 
-  async coupangProductsPriceControl(cronId: string, type: string) {
-    console.log(`${type}${cronId}: 새로운 상품 가격 업데이트 시작`);
+  async coupangProductsPriceControl(jobId: string, jobType: string) {
+    console.log(`${jobType}${jobId}: 새로운 상품 가격 업데이트 시작`);
 
     let successCount = 0;
     let failedCount = 0;
 
-    const updatedItems = await this.coupangRepository.getUpdatedItems(cronId);
+    const updatedItems = await this.coupangRepository.getUpdatedItems(jobId);
 
     if (updatedItems.length === 0) {
-      console.log(`${type}${cronId}: 새로운 업데이트가 없습니다. 종료합니다.`);
+      console.log(`${jobType}${jobId}: 새로운 업데이트가 없습니다. 종료합니다.`);
       return;
     }
 
-    console.log(`${type}${cronId}: 총 ${updatedItems.length}개의 아이템 업데이트`);
+    console.log(`${jobType}${jobId}: 총 ${updatedItems.length}개의 아이템 업데이트`);
 
     for (const [i, item] of updatedItems.entries()) {
       if (i % Math.ceil(updatedItems.length / 10) === 0) {
         const progressPercentage = ((i + 1) / updatedItems.length) * 100;
         console.log(
-          `${type}${cronId}: 가격 업데이트중 ${i + 1}/${updatedItems.length} (${progressPercentage.toFixed(2)}%)`,
+          `${jobType}${jobId}: 가격 업데이트중 ${i + 1}/${updatedItems.length} (${progressPercentage.toFixed(2)}%)`,
         );
       }
 
@@ -189,13 +189,13 @@ export class CoupangService {
       } catch (error: any) {
         failedCount++;
         console.error(
-          `${CronType.ERROR}${type}${cronId}: 가격 업데이트 오류-${vendorItemId}\n`,
+          `${JobType.ERROR}${jobType}${jobId}: 가격 업데이트 오류-${vendorItemId}\n`,
           error.response?.data || error.message,
         );
       }
     }
 
-    console.log(`${type}${cronId}: 엑셀 생성 시작`);
+    console.log(`${jobType}${jobId}: 엑셀 생성 시작`);
     setImmediate(async () => {
       try {
         const excelData = updatedItems.map((item: CoupangUpdateItemEntity) => ({
@@ -210,12 +210,11 @@ export class CoupangService {
         const worksheet = XLSX.utils.json_to_sheet(excelData);
         const workbook = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(workbook, worksheet, 'UpdatedProducts');
-        const filePath =
-          '/Users/daechanjo/codes/project/auto-store/tmp/coupang_' + cronId + '.xlsx';
+        const filePath = '/Users/daechanjo/codes/project/auto-store/tmp/coupang_' + jobId + '.xlsx';
 
         XLSX.writeFile(workbook, filePath);
 
-        console.log(`${type}${cronId}: 엑셀 파일 전송 요청`);
+        console.log(`${jobType}${jobId}: 엑셀 파일 전송 요청`);
         await this.rabbitmqService.emit('mail-queue', 'sendUpdateEmail', {
           filePath: filePath,
           successCount: successCount,
@@ -224,23 +223,23 @@ export class CoupangService {
           smartStore: 'coupang',
         });
 
-        console.log(`${type}${cronId}: 엑셀 파일 전송 요청 완료`);
+        console.log(`${jobType}${jobId}: 엑셀 파일 전송 요청 완료`);
       } catch (error: any) {
         console.error(
-          `${CronType.ERROR}${type}${cronId}: 메시지 전송 실패\n`,
+          `${JobType.ERROR}${jobType}${jobId}: 메시지 전송 실패\n`,
           error.response?.data || error.message,
         );
       }
     });
 
-    console.log(`${type}${cronId}: 상품 가격 업데이트 완료`);
+    console.log(`${jobType}${jobId}: 상품 가격 업데이트 완료`);
   }
 
-  async shippingCostManagement(cronId: string, coupangProductDetails: any, type: string) {
+  async shippingCostManagement(jobId: string, jobType: string, coupangProductDetails: any) {
     let successCount = 0;
     let failedCount = 0;
 
-    console.log(`${type}${cronId}: ${coupangProductDetails.length}개 수정 시작...`);
+    console.log(`${jobType}${jobId}: ${coupangProductDetails.length}개 수정 시작...`);
 
     for (const product of coupangProductDetails) {
       try {
@@ -249,7 +248,7 @@ export class CoupangService {
         successCount++;
       } catch (error: any) {
         console.error(
-          `${CronType.ERROR}${type}${cronId}: 반품 배송비 업데이트 실패-${product.sellerProductId}\n`,
+          `${JobType.ERROR}${jobType}${jobId}: 반품 배송비 업데이트 실패-${product.sellerProductId}\n`,
           error.response?.data || error.message,
         );
         failedCount++;
@@ -264,8 +263,8 @@ export class CoupangService {
     await this.coupangRepository.clearCoupangComparison();
   }
 
-  async saveUpdateCoupangItems(cronId: string, type: string, items: AdjustData[]) {
-    await this.coupangRepository.saveUpdatedCoupangItems(items, cronId);
+  async saveUpdateCoupangItems(jobId: string, jobType: string, items: AdjustData[]) {
+    await this.coupangRepository.saveUpdatedCoupangItems(items, jobId);
   }
 
   async getComparisonCount() {
@@ -274,13 +273,13 @@ export class CoupangService {
 
   /**
    * 쿠팡 송장 정보를 순차적으로 업로드합니다.
-   * @param cronId 크론 작업 ID
-   * @param type 작업 유형
+   * @param jobId 크론 작업 ID
+   * @param jobType 작업 유형
    * @param invoices 업로드할 송장 목록
    */
   async uploadInvoices(
-    cronId: string,
-    type: string,
+    jobId: string,
+    jobType: string,
     invoices: CoupangInvoice[],
   ): Promise<InvoiceUploadResult[]> {
     const results: InvoiceUploadResult[] = [];
@@ -298,7 +297,7 @@ export class CoupangService {
 
       try {
         // 송장 업로드 시도
-        await this.coupangApiService.uploadInvoice(cronId, type, invoice);
+        await this.coupangApiService.uploadInvoice(jobId, jobType, invoice);
 
         // 성공 시 상태 업데이트
         result.status = 'success';
@@ -306,7 +305,7 @@ export class CoupangService {
         // 오류 메시지 저장
         result.error = error.message || '알 수 없는 오류';
         console.error(
-          `${type}${cronId}: 주문 ${invoice.orderId} 송장 업로드 실패\n`,
+          `${jobType}${jobId}: 주문 ${invoice.orderId} 송장 업로드 실패\n`,
           error.response?.data || error.message,
         );
       }

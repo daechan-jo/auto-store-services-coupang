@@ -1,4 +1,4 @@
-import { CoupangInvoice, CoupangProduct, CronType } from '@daechanjo/models';
+import { CoupangInvoice, CoupangProduct, JobType } from '@daechanjo/models';
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios, { AxiosResponse } from 'axios';
@@ -15,8 +15,8 @@ export class CoupangApiService {
   /**
    * 쿠팡 판매자 API를 통해 전체 상품 목록을 페이징하여 조회
    *
-   * @param cronId - 현재 실행 중인 크론 작업의 고유 식별자
-   * @param type - 로그 메시지에 포함될 작업 유형 식별자
+   * @param jobId - 현재 실행 중인 크론 작업의 고유 식별자
+   * @param jobType - 로그 메시지에 포함될 작업 유형 식별자
    *
    * @returns {Promise<CoupangProduct[]>} - 쿠팡 상품 객체 배열을 포함하는 Promise
    *
@@ -34,8 +34,8 @@ export class CoupangApiService {
    * 최대 재시도 횟수를 초과하면 예외를 발생시킵니다.
    * 페이지 진행 상황을 10페이지마다 로그로 기록합니다.
    */
-  async getProductListPaging(cronId: string, type: string): Promise<CoupangProduct[]> {
-    console.log(`${type}${cronId}: 쿠팡 전체상품 조회...`);
+  async getProductListPaging(jobId: string, jobType: string): Promise<CoupangProduct[]> {
+    console.log(`${jobType}${jobId}: 쿠팡 전체상품 조회...`);
     const apiPath = '/v2/providers/seller_api/apis/api/v1/marketplace/seller-products';
 
     let nextToken = '';
@@ -81,7 +81,7 @@ export class CoupangApiService {
 
             if (pageCount % 10 === 0)
               console.log(
-                `${type}${cronId}: 진행중 - 현재 페이지 ${pageCount}, ${allProducts.length} 수집됨`,
+                `${jobType}${jobId}: 진행중 - 현재 페이지 ${pageCount}, ${allProducts.length} 수집됨`,
               );
 
             if (!nextToken) {
@@ -94,14 +94,14 @@ export class CoupangApiService {
           } catch (error: any) {
             retryCount++;
             console.error(
-              `${CronType.ERROR}${type}${cronId}: API 요청 오류, 재시도 ${retryCount}/${maxRetries}\n`,
+              `${JobType.ERROR}${jobType}${jobId}: API 요청 오류, 재시도 ${retryCount}/${maxRetries}\n`,
               error.response?.data || error.message,
             );
 
             // 재시도 횟수 초과 시 throw
             if (retryCount >= maxRetries) {
               throw new Error(
-                `${CronType.ERROR}${type}${cronId}: 최대 재시도 횟수를 초과하여 요청 실패 (nextToken: ${nextToken || '없음'})`,
+                `${JobType.ERROR}${jobType}${jobId}: 최대 재시도 횟수를 초과하여 요청 실패 (nextToken: ${nextToken || '없음'})`,
               );
             }
 
@@ -114,12 +114,12 @@ export class CoupangApiService {
         if (!nextToken) break;
       }
 
-      console.log(`${type}${cronId}: 쿠팡 전체상품 조회 완료 - ${allProducts.length}개`);
+      console.log(`${jobType}${jobId}: 쿠팡 전체상품 조회 완료 - ${allProducts.length}개`);
 
       return allProducts;
     } catch (error: any) {
       console.error(
-        `${CronType.ERROR}${type}${cronId}: API 요청 중단\n`,
+        `${JobType.ERROR}${jobType}${jobId}: API 요청 중단\n`,
         error.response?.data || error.message,
       );
       throw new Error('쿠팡 API 요청 실패');
@@ -129,8 +129,8 @@ export class CoupangApiService {
   /**
    * 쿠팡 판매자 API를 통해 특정 상품의 상세 정보 조회
    *
-   * @param cronId - 현재 실행 중인 크론 작업의 고유 식별자
-   * @param type - 로그 메시지에 포함될 작업 유형 식별자
+   * @param jobId - 현재 실행 중인 크론 작업의 고유 식별자
+   * @param jobType - 로그 메시지에 포함될 작업 유형 식별자
    * @param sellerProductId - 조회할 판매자 상품 ID
    *
    * @returns {Promise<CoupangProduct>} - 상품 상세 정보를 포함하는 Promise
@@ -148,8 +148,8 @@ export class CoupangApiService {
    * API 요청 중 오류가 발생하면 로그를 남기고 예외를 발생시킵니다.
    */
   async getProductDetail(
-    cronId: string,
-    type: string,
+    jobId: string,
+    jobType: string,
     sellerProductId: number,
   ): Promise<CoupangProduct> {
     const apiPath = `/v2/providers/seller_api/apis/api/v1/marketplace/seller-products/${sellerProductId}`;
@@ -174,7 +174,7 @@ export class CoupangApiService {
       return response.data.data;
     } catch (error: any) {
       console.error(
-        `${CronType.ERROR}${type}${cronId}: 상품 상세 조회 오류 ${sellerProductId}\n`,
+        `${JobType.ERROR}${jobType}${jobId}: 상품 상세 조회 오류 ${sellerProductId}\n`,
         error.response?.data || error.message,
       );
       throw new Error('쿠팡 상품 상세 조회 실패');
@@ -184,8 +184,8 @@ export class CoupangApiService {
   /**
    * 쿠팡 판매자 API를 통해 특정 상품의 판매를 중지
    *
-   * @param cronId - 현재 실행 중인 크론 작업의 고유 식별자
-   * @param type - 로그 메시지에 포함될 작업 유형 식별자
+   * @param jobId - 현재 실행 중인 크론 작업의 고유 식별자
+   * @param jobType - 로그 메시지에 포함될 작업 유형 식별자
    * @param vendorItemId - 판매 중지할 판매자 상품 항목 ID
    *
    * @returns {Promise<void>} - 작업 완료 후 반환되는 Promise
@@ -200,7 +200,7 @@ export class CoupangApiService {
    * API 요청 중 오류가 발생하면 로그를 남기지만 예외를 발생시키지 않고 계속 진행합니다.
    * 이는 일부 상품 판매 중지 실패가 전체 프로세스를 중단시키지 않도록 하기 위함입니다.
    */
-  async putStopSellingItem(cronId: string, type: string, vendorItemId: number): Promise<void> {
+  async putStopSellingItem(jobId: string, jobType: string, vendorItemId: number): Promise<void> {
     const apiPath = `/v2/providers/seller_api/apis/api/v1/marketplace/vendor-items/${vendorItemId}/sales/stop`;
 
     const { authorization, datetime } = await this.signatureService.createHmacSignature(
@@ -221,7 +221,7 @@ export class CoupangApiService {
       });
     } catch (error: any) {
       console.error(
-        `${CronType.ERROR}${type}${cronId}: 아이템 판매 중지 실패 ${vendorItemId}\n`,
+        `${JobType.ERROR}${jobType}${jobId}: 아이템 판매 중지 실패 ${vendorItemId}\n`,
         error.response?.data || error.message,
       );
     }
@@ -302,8 +302,8 @@ export class CoupangApiService {
     });
   }
 
-  async putOrderStatus(cronId: string, type: string, shipmentBoxIds: string[]): Promise<void> {
-    console.log(`${type}${cronId}: 주문 상태 변경`);
+  async putOrderStatus(jobId: string, jobType: string, shipmentBoxIds: string[]): Promise<void> {
+    console.log(`${jobType}${jobId}: 주문 상태 변경`);
     const vendorId = this.configService.get<string>('COUPANG_VENDOR_ID');
     const updatePath = `/v2/providers/openapi/apis/api/v4/vendors/${vendorId}/ordersheets/acknowledgement`;
     const body = { vendorId: vendorId, shipmentBoxIds: shipmentBoxIds };
@@ -325,17 +325,17 @@ export class CoupangApiService {
       });
       console.log(JSON.stringify(result.data, null, 2));
     } catch (error: any) {
-      console.error(`${CronType.ERROR}${type}${cronId}: 변경 실패\n`, error);
+      console.error(`${JobType.ERROR}${jobType}${jobId}: 변경 실패\n`, error);
     }
   }
 
   /**
    * 단일 송장을 업로드하고 지정된 시간만큼 대기합니다.
-   * @param cronId 크론 작업 ID
-   * @param type 작업 유형
+   * @param jobId 크론 작업 ID
+   * @param jobType 작업 유형
    * @param invoice 업로드할 송장 정보
    */
-  async uploadInvoice(cronId: string, type: string, invoice: CoupangInvoice) {
+  async uploadInvoice(jobId: string, jobType: string, invoice: CoupangInvoice) {
     const vendorId = this.configService.get<string>('COUPANG_VENDOR_ID');
     const path = `/v2/providers/openapi/apis/api/v4/vendors/${vendorId}/orders/invoices`;
     const body = {
@@ -372,7 +372,7 @@ export class CoupangApiService {
 
       if (result.data.data.responseMessage === 'FAIL') throw new Error(result.data);
     } catch (error: any) {
-      console.error(`${CronType.ERROR}${type}${cronId}: 실패\n`, error);
+      console.error(`${JobType.ERROR}${jobType}${jobId}: 실패\n`, error);
       throw new Error(error);
     }
   }

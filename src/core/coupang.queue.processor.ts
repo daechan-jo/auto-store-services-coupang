@@ -1,4 +1,4 @@
-import { CronType } from '@daechanjo/models';
+import { JobType } from '@daechanjo/models';
 import { Process, Processor } from '@nestjs/bull';
 import { Injectable } from '@nestjs/common';
 import { Job } from 'bull';
@@ -25,8 +25,8 @@ export class MessageQueueProcessor {
         case 'invoiceUpload':
           return await this.coupangCrawlerService.invoiceUpload(
             payload.cronId,
-            payload.updatedOrders,
             payload.type,
+            payload.updatedOrders,
           );
 
         // todo price 모듈에서 개별환경에서 동작중
@@ -43,12 +43,12 @@ export class MessageQueueProcessor {
 
         default:
           console.warn(
-            `${CronType.ERROR}${payload.type}${payload.cronId}: 알 수 없는 패턴 ${pattern}`,
+            `${JobType.ERROR}${payload.type}${payload.cronId}: 알 수 없는 패턴 ${pattern}`,
           );
       }
     } catch (error: any) {
       console.error(
-        `${CronType.ERROR}${payload.type}${payload.cronId}: 🔥${pattern}\n`,
+        `${JobType.ERROR}${payload.type}${payload.cronId}: 🔥${pattern}\n`,
         error.response?.data || error.message,
       );
     }

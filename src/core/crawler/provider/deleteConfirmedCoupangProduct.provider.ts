@@ -33,8 +33,8 @@ export class DeleteConfirmedCoupangProductProvider {
    * 페이지에서 비준수 상품의 상품 코드 목록을 추출
    *
    * @param page - Playwright의 Page 객체
-   * @param cronId - 크론 작업 ID
-   * @param type - 로그 메시지 타입
+   * @param jobId - 크론 작업 ID
+   * @param jobType - 로그 메시지 타입
    * @returns {Promise<string[]>} - 추출된 상품 코드 배열
    * @throws {Error} - 상품을 찾을 수 없는 경우 예외 발생
    *
@@ -45,11 +45,11 @@ export class DeleteConfirmedCoupangProductProvider {
    */
   async extractNonConformingProductCodes(
     page: Page,
-    cronId: string,
-    type: string,
+    jobId: string,
+    jobType: string,
   ): Promise<string[]> {
     try {
-      console.log(`${type}${cronId}: 컨펌 상품 확인중...`);
+      console.log(`${jobType}${jobId}: 컨펌 상품 확인중...`);
       // 상품 행이 로드될 때까지 대기
       await page.waitForSelector('tr.inventory-line', { timeout: 6000 });
 
@@ -65,7 +65,7 @@ export class DeleteConfirmedCoupangProductProvider {
       });
     } catch (error: any) {
       console.log(
-        `${type}${cronId}: 새로운 컨펌 상품이 없습니다\n`,
+        `${jobType}${jobId}: 새로운 컨펌 상품이 없습니다\n`,
         error.response?.data || error.message,
       );
       throw new Error('No non-conforming products found');

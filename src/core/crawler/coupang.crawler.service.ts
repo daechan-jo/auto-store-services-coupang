@@ -1,4 +1,4 @@
-import { CoupangExtractDetail, CronType, OrderStatus } from '@daechanjo/models';
+import { CoupangExtractDetail, JobType, OrderStatus, WinnerStatus } from '@daechanjo/models';
 import { PlaywrightService } from '@daechanjo/playwright';
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -30,8 +30,8 @@ export class CoupangCrawlerService {
   /**
    * 쿠팡 윙에서 주문 상태를 업데이트하는 메서드
    *
-   * @param cronId - 현재 실행 중인 크론 작업의 고유 식별자
-   * @param type - 로그 메시지에 포함될 작업 유형 식별자
+   * @param jobId - 현재 실행 중인 크론 작업의 고유 식별자
+   * @param jobType - 로그 메시지에 포함될 작업 유형 식별자
    *
    * @returns {Promise<void>} - 작업 완료 후 반환되는 Promise
    *
@@ -51,35 +51,36 @@ export class CoupangCrawlerService {
    * 크롤링 과정에서 오류가 발생하면 에러 로그를 남기고 처리를 계속합니다.
    * 마지막에 컨텍스트 리소스를 확실히 해제하여 메모리 누수를 방지합니다.
    */
-  async orderStatusUpdate(cronId: string, type: string): Promise<void> {
-    console.log(`${type}${cronId}: 주문 상태 업데이트 시작`);
+  async orderStatusUpdate(jobId: string, jobType: string): Promise<void> {
+    console.log(`${jobType}${jobId}: 주문 상태 업데이트 시작`);
 
     // 브라우저 컨텍스트 및 페이지 ID 설정
     const store = this.configService.get<string>('STORE');
-    const contextId = `context-${store}-${cronId}`;
-    const pageId = `page-${store}-${cronId}`;
+    const contextId = `context-${store}-${jobId}`;
+    const pageId = `page-${store}-${jobId}`;
 
     try {
       // 쿠팡 윙 로그인 및 페이지 객체 가져오기
       const coupangPage = await this.playwrightService.loginToCoupangSite(contextId, pageId);
       await new Promise((resolve) => setTimeout(resolve, 1000));
       // 주문 상태 업데이트 프로바이더에 처리 위임
-      await this.orderStatusUpdateProvider.updateOrderStatus(coupangPage, cronId, type);
+      await this.orderStatusUpdateProvider.updateOrderStatus(coupangPage, jobId, jobType);
 
-      console.log(`${type}${cronId}: 주문 상태 업데이트 완료`);
+      console.log(`${jobType}${jobId}: 주문 상태 업데이트 완료`);
     } catch (error) {
-      console.error(`${type}${cronId}: 주문 상태 업데이트 중 오류 발생`, error);
+      console.error(`${jobType}${jobId}: 주문 상태 업데이트 중 오류 발생`, error);
     } finally {
       await this.playwrightService.releaseContext(contextId);
     }
   }
 
+  // todo 사용안함
   /**
    * 쿠팡 윙에서 주문의 송장 정보를 업로드하는 메서드
    *
-   * @param cronId - 현재 실행 중인 크론 작업의 고유 식별자
+   * @param jobId - 현재 실행 중인 크론 작업의 고유 식별자
    * @param updatedOrders - 송장 정보를 업로드할 주문 배열
-   * @param type - 로그 메시지에 포함될 작업 유형 식별자
+   * @param jobType - 로그 메시지에 포함될 작업 유형 식별자
    *
    * @returns {Promise<any[]>} - 각 주문별 송장 업로드 결과 배열
    *
@@ -102,13 +103,13 @@ export class CoupangCrawlerService {
    * 모든 작업 완료 후 Playwright 컨텍스트 리소스를 해제하여 메모리 누수를 방지합니다.
    * 각 단계마다 적절한 대기 시간을 적용하여 페이지 로딩 및 DOM 업데이트를 기다립니다.
    */
-  async invoiceUpload(cronId: string, updatedOrders: any[], type: string): Promise<any[]> {
-    console.log(`${type}${cronId}: 송장업로드 시작`);
+  async invoiceUpload(jobId: string, jobType: string, updatedOrders: any[]): Promise<any[]> {
+    console.log(`${jobType}${jobId}: 송장업로드 시작`);
 
     // 기본 설정 및 페이지 초기화
     const store = this.configService.get<string>('STORE');
-    const contextId = `context-${store}-${cronId}`;
-    const pageId = `page-${store}-${cronId}`;
+    const contextId = `context-${store}-${jobId}`;
+    const pageId = `page-${store}-${jobId}`;
 
     const coupangPage = await this.playwrightService.loginToCoupangSite(contextId, pageId);
 
@@ -126,8 +127,8 @@ export class CoupangCrawlerService {
         const result = await this.invoiceUploaderProvider.processOrder(
           coupangPage,
           order,
-          type,
-          cronId,
+          jobType,
+          jobId,
         );
         results.push(result);
       }
@@ -141,8 +142,8 @@ export class CoupangCrawlerService {
   /**
    * 쿠팡 윙에서 판매자의 상품 상세 정보를 크롤링하는 메서드
    *
-   * @param cronId - 현재 실행 중인 크론 작업의 고유 식별자
-   * @param type - 로그 메시지에 포함될 작업 유형 식별자
+   * @param jobId - 현재 실행 중인 크론 작업의 고유 식별자
+   * @param jobType - 로그 메시지에 포함될 작업 유형 식별자
    *
    * @returns {Promise<void>} - 크롤링 작업 완료 후 반환되는 Promise
    *
@@ -158,13 +159,13 @@ export class CoupangCrawlerService {
    * 수집된 데이터는 데이터베이스에 저장되며, 모든 페이지를 크롤링한 후 리소스를 정리합니다.
    * 페이지당 50개 상품을 크롤링하도록 설정되어 있으며, 10페이지마다 진행 상황을 로그로 기록합니다.
    */
-  async crawlCoupangDetailProducts(cronId: string, type: string): Promise<void> {
-    console.log(`${type}${cronId}: 쿠팡 상품 상세 크롤링 시작...`);
+  async crawlCoupangDetailProducts(jobId: string, jobType: string): Promise<void> {
+    console.log(`${jobType}${jobId}: 쿠팡 상품 상세 크롤링 시작...`);
 
     // 브라우저 컨텍스트 및 페이지 설정
     const store = this.configService.get<string>('STORE');
-    const contextId = `context-${store}-${cronId}`;
-    const pageId = `page-${store}-${cronId}`;
+    const contextId = `context-${store}-${jobId}`;
+    const pageId = `page-${store}-${jobId}`;
 
     try {
       // 쿠팡 윙 로그인 및 페이지 객체 가져오기
@@ -179,7 +180,7 @@ export class CoupangCrawlerService {
       while (!isLastPage) {
         // 진행 상황 로깅 (10페이지마다)
         if (currentPage % 10 === 0) {
-          console.log(`${type}${cronId}: 상품 스크랩핑중 - 현재 페이지 ${currentPage}`);
+          console.log(`${jobType}${jobId}: 상품 스크랩핑중 - 현재 페이지 ${currentPage}`);
         }
 
         // 현재 페이지 크롤링
@@ -191,25 +192,25 @@ export class CoupangCrawlerService {
 
         // 다음 페이지 확인
         if (scrapedProducts.length === 0) {
-          console.log(`${type}${cronId}: 더 이상 상품이 없습니다. 크롤링 종료`);
+          console.log(`${jobType}${jobId}: 더 이상 상품이 없습니다. 크롤링 종료`);
           isLastPage = true;
         } else {
           currentPage++;
         }
       }
     } catch (error) {
-      console.error(`${type}${cronId}: 상품 크롤링 중 오류 발생`, error);
+      console.error(`${jobType}${jobId}: 상품 크롤링 중 오류 발생`, error);
     } finally {
       await this.playwrightService.releaseContext(contextId);
-      console.log(`${type}${cronId}: 쿠팡 상품 상세 크롤링 종료`);
+      console.log(`${jobType}${jobId}: 쿠팡 상품 상세 크롤링 종료`);
     }
   }
 
   /**
    * 쿠팡 윙에서 비준수(컨펌) 상품을 찾아 판매 중지 및 삭제하는 메서드
    *
-   * @param cronId - 현재 실행 중인 크론 작업의 고유 식별자
-   * @param type - 로그 메시지에 포함될 작업 유형 식별자
+   * @param jobId - 현재 실행 중인 크론 작업의 고유 식별자
+   * @param jobType - 로그 메시지에 포함될 작업 유형 식별자
    *
    * @returns {Promise<{matchedProducts: any[]} | undefined>} - 일치하는 상품 목록 또는 없을 경우 undefined
    *
@@ -228,13 +229,13 @@ export class CoupangCrawlerService {
    * 작업 중 발생하는 오류는 로그로 기록되며, 컨텍스트 리소스는 항상 해제됩니다.
    */
   async deleteConfirmedCoupangProduct(
-    cronId: string,
-    type: string,
+    jobId: string,
+    jobType: string,
   ): Promise<{ matchedProducts: any[] } | undefined> {
     // 브라우저 컨텍스트 및 페이지 설정
     const store = this.configService.get<string>('STORE');
-    const contextId = `context-${store}-${cronId}`;
-    const pageId = `page-${store}-${cronId}`;
+    const contextId = `context-${store}-${jobId}`;
+    const pageId = `page-${store}-${jobId}`;
 
     try {
       // 쿠팡 윙 로그인 및 페이지 객체 가져오기
@@ -252,12 +253,12 @@ export class CoupangCrawlerService {
         conformProductCodes =
           await this.deleteConfirmedCoupangProductProvider.extractNonConformingProductCodes(
             coupangPage,
-            cronId,
-            type,
+            jobId,
+            jobType,
           );
       } catch (error: any) {
         // 비준수 상품이 없는 경우
-        console.log(`${type}${cronId}: 비준수 상품이 없습니다`, error);
+        console.log(`${jobType}${jobId}: 비준수 상품이 없습니다`, error);
         await this.playwrightService.releaseContext(contextId);
         return undefined;
       }
@@ -267,8 +268,8 @@ export class CoupangCrawlerService {
 
       // API를 통해 판매자의 상품 목록 조회
       const coupangProducts = await this.coupangApiService.getProductListPaging(
-        cronId,
-        CronType.CONFORM,
+        jobId,
+        JobType.CONFORM,
       );
 
       // 비준수 상품 코드와 일치하는 상품 찾기
@@ -277,24 +278,24 @@ export class CoupangCrawlerService {
         coupangProducts,
       );
 
-      console.log(`${type}${cronId}: 컨펌 상품\n`, matchedProducts);
+      console.log(`${jobType}${jobId}: 컨펌 상품\n`, matchedProducts);
 
       if (matchedProducts.length > 0) {
         // 일치하는 상품 판매 중지 및 삭제
         await this.coupangService.stopSaleBySellerProductId(
-          cronId,
-          CronType.CONFORM,
+          jobId,
+          JobType.CONFORM,
           matchedProducts,
         );
-        await this.coupangService.deleteProducts(cronId, CronType.CONFORM, matchedProducts);
-        console.log(`${type}${cronId}: 쿠팡 컨펌상품 삭제 완료`);
+        await this.coupangService.deleteProducts(jobId, JobType.CONFORM, matchedProducts);
+        console.log(`${jobType}${jobId}: 쿠팡 컨펌상품 삭제 완료`);
       } else {
-        console.log(`${type}${cronId}: 삭제할 컨펌상품이 없습니다`);
+        console.log(`${jobType}${jobId}: 삭제할 컨펌상품이 없습니다`);
       }
 
       return { matchedProducts };
     } catch (error) {
-      console.error(`${type}${cronId}: 컨펌상품 삭제 중 오류 발생`, error);
+      console.error(`${jobType}${jobId}: 컨펌상품 삭제 중 오류 발생`, error);
       await this.playwrightService.releaseContext(contextId);
       return undefined;
     }
@@ -303,8 +304,8 @@ export class CoupangCrawlerService {
   /**
    * 쿠팡 윙에서 가격 비교 데이터를 크롤링하는 메서드
    *
-   * @param cronId - 현재 실행 중인 크론 작업의 고유 식별자
-   * @param type - 로그 메시지에 포함될 작업 유형 식별자
+   * @param jobId - 현재 실행 중인 크론 작업의 고유 식별자
+   * @param jobType - 로그 메시지에 포함될 작업 유형 식별자
    * @param winnerStatus - 가격 경쟁 상태 (WIN_NOT_SUPPRESSED 또는 LOSE_NOT_SUPPRESSED)
    *
    * @returns {Promise<void>} - 크롤링 작업 완료 후 반환되는 Promise
@@ -315,16 +316,16 @@ export class CoupangCrawlerService {
    * 동일한 크롤링 로직을 사용합니다.
    */
   async crawlCoupangPriceComparison(
-    cronId: string,
-    type: string,
-    winnerStatus: 'LOSE_NOT_SUPPRESSED' | 'WIN_NOT_SUPPRESSED',
+    jobId: string,
+    jobType: string,
+    winnerStatus: WinnerStatus,
   ): Promise<void> {
-    console.log(`${type}${cronId}: 쿠팡 가격비교 크롤링 시작... (상태: ${winnerStatus})`);
+    console.log(`${jobType}${jobId}: 쿠팡 가격비교 크롤링 시작... (상태: ${winnerStatus})`);
 
     // 브라우저 컨텍스트 및 페이지 설정
     const store = this.configService.get<string>('STORE');
-    const contextId = `context-${store}-${cronId}-${winnerStatus}`;
-    const pageId = `page-${store}-${cronId}-${winnerStatus}`;
+    const contextId = `context-${store}-${jobId}-${winnerStatus}`;
+    const pageId = `page-${store}-${jobId}-${winnerStatus}`;
 
     try {
       // 쿠팡 윙 로그인 및 페이지 객체 가져오기
@@ -335,21 +336,21 @@ export class CoupangCrawlerService {
       await this.crawlCoupangPriceComparisonProvider.scrapePriceComparisonPages(
         coupangPage,
         winnerStatus,
-        cronId,
-        type,
+        jobId,
+        jobType,
       );
 
-      console.log(`${type}${cronId}: 쿠팡 가격비교 크롤링 완료 (상태: ${winnerStatus})`);
+      console.log(`${jobType}${jobId}: 쿠팡 가격비교 크롤링 완료 (상태: ${winnerStatus})`);
     } catch (error) {
-      console.error(`${type}${cronId}: 가격비교 크롤링 중 오류 발생`, error);
+      console.error(`${jobType}${jobId}: 가격비교 크롤링 중 오류 발생`, error);
     } finally {
       await this.playwrightService.releaseContext(contextId);
     }
   }
 
-  async newGetCoupangOrderList(cronId: string, type: string, status: OrderStatus) {
-    const contextId = `context-${type}-${cronId}}`;
-    const pageId = `page-${type}-${cronId}}`;
+  async newGetCoupangOrderList(jobId: string, jobType: string, status: OrderStatus) {
+    const contextId = `context-${jobType}-${jobId}}`;
+    const pageId = `page-${jobType}-${jobId}}`;
 
     const today = new Date();
     const twoWeeksAgo = new Date();
