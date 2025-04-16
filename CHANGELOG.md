@@ -1,3 +1,10 @@
+# [1.1.0](https://github.com/daechan-jo/auto-store-services-coupang/compare/v1.0.3...v1.1.0) (2025-04-16)
+
+
+### Features
+
+* add AppConfig class and enhance Coupang API service methods ([cec9c70](https://github.com/daechan-jo/auto-store-services-coupang/commit/cec9c70f828275bc56712bcf01a30d0d0ed9d948))
+
 ## [1.0.3](https://github.com/daechan-jo/auto-store-services-coupang/compare/v1.0.2...v1.0.3) (2025-04-03)
 
 ## [1.0.2](https://github.com/daechan-jo/auto-store-services-coupang/compare/v1.0.1...v1.0.2) (2025-04-01)
