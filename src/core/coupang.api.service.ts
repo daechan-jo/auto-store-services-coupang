@@ -377,10 +377,56 @@ export class CoupangApiService {
     }
   }
 
+  /**
+   * 쿠팡의 특정 주문 정보를 조회하는 메서드
+   *
+   * @returns {Promise<void>} - 작업이 완료되면 resolve되는 Promise
+   *
+   * @remarks
+   * 쿠팡 오픈 API를 사용하여 하드코딩된 주문번호(미정)의 정보를 조회합니다.
+   * HMAC 서명을 생성하여 인증 헤더와 함께 GET 요청을 전송합니다.
+   * 응답 데이터는 콘솔에 출력됩니다.
+   *
+   * @example
+   * // 하드코딩된 주문번호의 주문 정보 조회하기
+   * await getOrder();
+   *
+   */
   async getOrder() {
     const vendorId = this.configService.get<string>('COUPANG_VENDOR_ID');
-    // "shipmentBoxId": 909295085462491100, 909295085462491100
     const path = `/v2/providers/openapi/apis/api/v4/vendors/${vendorId}/25100104633733/ordersheets`;
+
+    const { authorization, datetime } = await this.signatureService.createHmacSignature(
+      'GET',
+      path,
+      '',
+      false,
+    );
+
+    const result = await axios.get(`https://api-gateway.coupang.com${path}`, {
+      headers: {
+        Authorization: authorization,
+        'Content-Type': 'application/json;charset=UTF-8',
+        'X-Coupang-Date': datetime,
+      },
+    });
+    console.log(JSON.stringify(result.data, null, 2));
+  }
+
+  /**
+   * 쿠팡 판매자 상품의 유입 상태를 조회하는 메서드
+   *
+   * @returns {Promise<void>} - 작업이 완료되면 resolve되는 Promise
+   *
+   * @remarks
+   * 쿠팡 셀러 API를 사용하여 판매자의 상품 유입 상태를 조회합니다.
+   * HMAC 서명을 생성하여 인증 헤더와 함께 GET 요청을 전송합니다.
+   * 응답 데이터는 콘솔에 출력됩니다.
+   *
+   * @todo 페이지네이션이나 필터링 파라미터를 추가하는 것이 좋을 수 있습니다.
+   */
+  async getProductInflow(): Promise<void> {
+    const path = `/v2/providers/seller_api/apis/api/v1/marketplace/seller-products/inflow-status`;
 
     const { authorization, datetime } = await this.signatureService.createHmacSignature(
       'GET',

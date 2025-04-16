@@ -5,6 +5,7 @@ import {
   JobType,
   InvoiceUploadResult,
   OnchWithCoupangProduct,
+  CoupangPagingProduct,
 } from '@daechanjo/models';
 import { RabbitMQService } from '@daechanjo/rabbitmq';
 import { Injectable } from '@nestjs/common';
@@ -27,11 +28,27 @@ export class CoupangService {
     private readonly coupangApiService: CoupangApiService,
   ) {}
 
+  /**
+   * 판매자 상품 ID를 기반으로 쿠팡 상품의 판매를 중지하는 메서드
+   *
+   * @param jobId - 작업 식별을 위한 고유 ID
+   * @param jobType - 작업 유형 (예: 'SOLDOUT')
+   * @param data - 판매 중지할 상품 데이터 배열
+   *               OnchWithCoupangProduct[] 또는 CoupangComparisonWithOnchData[] 타입
+   *
+   * @returns {Promise<{status: string}>} 작업 성공 시 {status: 'success'} 객체를 반환하는 Promise
+   *
+   * @description
+   * 1. 주어진.data 배열의 각 상품에 대해 상세 정보를 조회
+   * 2. 조회된 상세 정보의 모든 아이템에 대해 판매 중지 처리
+   * 3. 처리 진행상황을 10% 단위로 로그에 출력
+   * 4. API 호출 간 0.5초 간격으로 요청 제한
+   */
   async stopSaleBySellerProductId(
     jobId: string,
     jobType: string,
     data: OnchWithCoupangProduct[] | CoupangComparisonWithOnchData[],
-  ) {
+  ): Promise<{ status: string }> {
     console.log(`${jobType}${jobId}: 쿠팡 아이템 판매 중지 시작`);
     if (data.length === 0) {
       console.warn(`${jobType}${jobId}: 중지할 아이템이 없습니다`);
@@ -77,11 +94,28 @@ export class CoupangService {
     return { status: 'success' };
   }
 
+  /**
+   * 쿠팡 상품을 일괄 삭제하는 메서드
+   *
+   * @param jobId - 작업 식별을 위한 고유 ID
+   * @param jobType - 작업 유형 (예: 'SOLDOUT')
+   * @param data - 삭제할 상품 데이터 배열
+   *               CoupangPagingProduct[] 또는 CoupangComparisonWithOnchData[] 타입
+   *
+   * @returns {Promise<void>} 작업 완료 후 아무 값도 반환하지 않는 Promise
+   *
+   * @description
+   * 1. 주어진 data 배열의 각 상품을 순차적으로 삭제
+   * 2. 처리 진행상황을 10% 단위로 로그에 출력
+   * 3. 삭제된 상품 정보를 수집하여 이메일 발송 큐에 메시지 전송
+   * 4. API 호출 간 0.5초 간격으로 요청 제한
+   * 5. 에러 발생 시 로그 기록 후 계속 진행
+   */
   async deleteProducts(
     jobId: string,
     jobType: string,
-    data: OnchWithCoupangProduct[] | CoupangComparisonWithOnchData[],
-  ) {
+    data: CoupangPagingProduct[] | CoupangComparisonWithOnchData[],
+  ): Promise<void> {
     console.log(`${jobType}${jobId}: 쿠팡 상품 삭제 시작`);
     if (data.length === 0) {
       console.warn(`${jobType}${jobId}: 삭제할 상품이 없습니다`);
@@ -99,12 +133,12 @@ export class CoupangService {
 
       const productId =
         jobType === JobType.SOLDOUT
-          ? +(product as OnchWithCoupangProduct).sellerProductId
+          ? +(product as CoupangPagingProduct).sellerProductId
           : (product as CoupangComparisonWithOnchData).vendorInventoryId;
 
       const productName =
         jobType === JobType.SOLDOUT
-          ? (product as OnchWithCoupangProduct).sellerProductName
+          ? (product as CoupangPagingProduct).sellerProductName
           : (product as CoupangComparisonWithOnchData).productName;
 
       try {
@@ -127,10 +161,10 @@ export class CoupangService {
     if (deletedProducts.length > 0) {
       try {
         await this.rabbitmqService.emit('mail-queue', 'sendBatchDeletionEmail', {
-          deletedProducts: deletedProducts,
+          jobId: jobId,
           jobType: jobType,
-          store: this.configService.get<string>('STORE'),
-          platformName: 'coupang',
+          jobName: '쿠팡 상품 삭제 안내',
+          data: deletedProducts,
         });
       } catch (error: any) {
         console.error(
@@ -141,7 +175,24 @@ export class CoupangService {
     }
   }
 
-  async coupangProductsPriceControl(jobId: string, jobType: string) {
+  /**
+   * 쿠팡 상품의 가격을 일괄 업데이트하는 메서드
+   *
+   * @param jobId - 작업 식별을 위한 고유 ID
+   * @param jobType - 작업 유형
+   *
+   * @returns {Promise<void>} 작업 완료 후 아무 값도 반환하지 않는 Promise
+   *
+   * @description
+   * 1. 데이터베이스에서 업데이트가 필요한 상품 정보를 조회
+   * 2. 각 상품의 가격을 쿠팡 API를 통해 업데이트
+   * 3. 처리 진행상황을 10% 단위로 로그에 출력
+   * 4. 업데이트 결과를 Excel 파일로 생성
+   * 5. 생성된 Excel 파일을 이메일 발송 큐에 메시지 전송
+   * 6. API 호출 간 0.1초 간격으로 요청 제한
+   * 7. 에러 발생 시 로그 기록 후 계속 진행
+   */
+  async coupangProductsPriceControl(jobId: string, jobType: string): Promise<void> {
     console.log(`${jobType}${jobId}: 새로운 상품 가격 업데이트 시작`);
 
     let successCount = 0;
@@ -216,11 +267,10 @@ export class CoupangService {
 
         console.log(`${jobType}${jobId}: 엑셀 파일 전송 요청`);
         await this.rabbitmqService.emit('mail-queue', 'sendUpdateEmail', {
-          filePath: filePath,
-          successCount: successCount,
-          filedCount: failedCount,
-          store: this.configService.get<string>('STORE'),
-          smartStore: 'coupang',
+          jobId: jobId,
+          jobType: jobType,
+          jobName: '쿠팡 가격 업데이트',
+          data: { filePath: filePath, successCount: successCount, filedCount: failedCount },
         });
 
         console.log(`${jobType}${jobId}: 엑셀 파일 전송 요청 완료`);
@@ -235,7 +285,26 @@ export class CoupangService {
     console.log(`${jobType}${jobId}: 상품 가격 업데이트 완료`);
   }
 
-  async shippingCostManagement(jobId: string, jobType: string, coupangProductDetails: any) {
+  /**
+   * 쿠팡 상품의 배송비 정보를 일괄 관리하는 메서드
+   *
+   * @param jobId - 작업 식별을 위한 고유 ID
+   * @param jobType - 작업 유형
+   * @param coupangProductDetails - 배송비 정보를 업데이트할 쿠팡 상품 상세 정보 배열
+   *
+   * @returns {Promise<{successCount: number, failedCount: number}>} 작업 성공 및 실패 건수 정보를 담은 객체
+   *
+   * @description
+   * 1. 주어진 상품 정보 배열의 각 상품에 대해 배송비 정보 업데이트
+   * 2. 성공 및 실패 건수 집계
+   * 3. API 호출 간 0.3초 간격으로 요청 제한
+   * 4. 에러 발생 시 로그 기록 후 계속 진행
+   */
+  async shippingCostManagement(
+    jobId: string,
+    jobType: string,
+    coupangProductDetails: any,
+  ): Promise<{ successCount: number; failedCount: number }> {
     let successCount = 0;
     let failedCount = 0;
 
@@ -259,15 +328,43 @@ export class CoupangService {
     return { successCount: successCount, failedCount: failedCount };
   }
 
-  async clearCoupangComparison() {
+  /**
+   * 쿠팡 비교 데이터를 초기화하는 메서드
+   *
+   * @returns {Promise<void>} 작업 완료 후 아무 값도 반환하지 않는 Promise
+   *
+   * @description
+   * 데이터베이스에 저장된 쿠팡 상품 비교 정보를 모두 삭제
+   */
+  async clearCoupangComparison(): Promise<void> {
     await this.coupangRepository.clearCoupangComparison();
   }
 
-  async saveUpdateCoupangItems(jobId: string, jobType: string, items: AdjustData[]) {
+  /**
+   * 업데이트된 쿠팡 상품 정보를.데이터베이스에 저장하는 메서드
+   *
+   * @param jobId - 작업 식별을 위한 고유 ID
+   * @param jobType - 작업 유형
+   * @param items - 저장할 업데이트된 상품 정보 배열 (AdjustData[] 타입)
+   *
+   * @returns {Promise<void>} 작업 완료 후 아무 값도 반환하지 않는 Promise
+   *
+   * @description
+   * 업데이트된 쿠팡 상품 정보를 데이터베이스에 저장
+   */
+  async saveUpdateCoupangItems(jobId: string, jobType: string, items: AdjustData[]): Promise<void> {
     await this.coupangRepository.saveUpdatedCoupangItems(items, jobId);
   }
 
-  async getComparisonCount() {
+  /**
+   * 쿠팡 상품 비교 데이터의 총 개수를 조회하는 메서드
+   *
+   * @returns {Promise<number>} 비교 데이터 개수를 반환하는 Promise
+   *
+   * @description
+   * 데이터베이스에 저장된 쿠팡 상품 비교 정보의 총 개수를 조회하여 반환
+   */
+  async getComparisonCount(): Promise<number> {
     return this.coupangRepository.getComparisonCount();
   }
 

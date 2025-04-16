@@ -348,6 +348,32 @@ export class CoupangCrawlerService {
     }
   }
 
+  /**
+   * 쿠팡 윙(Wing) 사이트에서 특정 상태의 주문 목록을 크롤링하는 메서드
+   *
+   * @param jobId - 작업 식별자
+   * @param jobType - 작업 유형
+   * @param status - 조회할 주문 상태 (OrderStatus 열거형)
+   * @returns Promise<string | undefined> - 성공 시 주문 데이터가 포함된 JSON 문자열, 실패 시 undefined
+   *
+   * @remarks
+   * Playwright를 사용하여 쿠팡 윙 사이트에 로그인하고 배송 관리 페이지에서 주문 데이터를 가져옵니다.
+   * 현재 날짜부터 2주 전까지의 주문 데이터를 조회합니다.
+   * API 응답을 가로채서 데이터를 추출하는 방식으로 동작합니다.
+   * 작업이 완료되면 Playwright 컨텍스트를 해제합니다.
+   *
+   * @example
+   * // READY 상태의 주문 목록 가져오기
+   * const orderData = await newGetCoupangOrderList('123', 'ORDER_', OrderStatus.READY);
+   * if (orderData) {
+   *   const orders = JSON.parse(orderData);
+   *   // 주문 데이터 처리
+   * }
+   *
+   * @todo
+   * - 에러 처리 로직 구현 필요 (현재 try-catch 내 에러 핸들링 비어 있음)
+   * - 반환 타입을 명확히 정의하고 에러 시 적절한 처리 추가
+   */
   async newGetCoupangOrderList(jobId: string, jobType: string, status: OrderStatus) {
     const contextId = `context-${jobType}-${jobId}}`;
     const pageId = `page-${jobType}-${jobId}}`;

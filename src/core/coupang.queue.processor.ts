@@ -29,7 +29,6 @@ export class MessageQueueProcessor {
             payload.updatedOrders,
           );
 
-        // todo price 모듈에서 개별환경에서 동작중
         case 'crawlCoupangDetailProducts':
           await this.coupangCrawlerService.crawlCoupangDetailProducts(payload.cronId, payload.type);
           return 'success';
