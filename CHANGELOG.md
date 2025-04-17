@@ -1,3 +1,10 @@
+## [1.5.1](https://github.com/hush-mart/coupang/compare/v1.5.0...v1.5.1) (2025-04-17)
+
+
+### Bug Fixes
+
+* update dotenv configuration for different environments ([579f237](https://github.com/hush-mart/coupang/commit/579f2376bbab5f63c9a10cbd9fe4bb7365e6b80e))
+
 # [1.5.0](https://github.com/hush-mart/coupang/compare/v1.4.0...v1.5.0) (2025-04-17)
 
 
