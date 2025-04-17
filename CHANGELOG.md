@@ -1,3 +1,10 @@
+# [1.6.0](https://github.com/hush-mart/coupang/compare/v1.5.1...v1.6.0) (2025-04-17)
+
+
+### Features
+
+* integrate RabbitMQ and update rabbitmq dependency to version 2.0.1 ([f6cfc07](https://github.com/hush-mart/coupang/commit/f6cfc07ee7b753c03e1b7bd1e124307d19a10088))
+
 ## [1.5.1](https://github.com/hush-mart/coupang/compare/v1.5.0...v1.5.1) (2025-04-17)
 
 
