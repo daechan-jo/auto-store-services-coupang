@@ -1,3 +1,10 @@
+# [1.5.0](https://github.com/hush-mart/coupang/compare/v1.4.0...v1.5.0) (2025-04-17)
+
+
+### Features
+
+* add ioredis and @nestjs-modules/ioredis dependencies ([69901ae](https://github.com/hush-mart/coupang/commit/69901ae1bd2754a05fea68d51c6ec20c76f07986))
+
 # [1.4.0](https://github.com/hush-mart/coupang/compare/v1.3.0...v1.4.0) (2025-04-17)
 
 
