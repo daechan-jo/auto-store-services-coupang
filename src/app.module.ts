@@ -28,7 +28,10 @@ import { CrawlCoupangPriceComparisonProvider } from './core/crawler/provider/cra
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: '/Users/daechanjo/codes/project/auto-store/.env',
+      envFilePath:
+        process.env.NODE_ENV !== 'PROD'
+          ? '/Users/daechanjo/codes/project/auto-store/.env'
+          : '/app/.env',
     }),
     TypeOrmModule.forRootAsync(TypeormConfig),
     TypeOrmModule.forFeature([
@@ -39,10 +42,11 @@ import { CrawlCoupangPriceComparisonProvider } from './core/crawler/provider/cra
     BullModule.registerQueueAsync({
       name: 'coupang-message-queue',
       useFactory: async (configService: ConfigService) => ({
-        redis: {
-          host: configService.get<string>('REDIS_HOST'),
-          port: configService.get<number>('REDIS_PORT'),
-        },
+        // redis: {
+        // host: configService.get<string>('REDIS_HOST'),
+        // port: configService.get<number>('REDIS_PORT'),
+        // },
+        redis: configService.get<string>('REDIS_URL'),
         prefix: '{bull}',
         defaultJobOptions: {
           removeOnComplete: true,
