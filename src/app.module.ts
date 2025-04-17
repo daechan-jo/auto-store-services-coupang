@@ -42,10 +42,6 @@ import { CrawlCoupangPriceComparisonProvider } from './core/crawler/provider/cra
     BullModule.registerQueueAsync({
       name: 'coupang-message-queue',
       useFactory: async (configService: ConfigService) => ({
-        // redis: {
-        // host: configService.get<string>('REDIS_HOST'),
-        // port: configService.get<number>('REDIS_PORT'),
-        // },
         redis: configService.get<string>('REDIS_URL'),
         prefix: '{bull}',
         defaultJobOptions: {
@@ -61,10 +57,16 @@ import { CrawlCoupangPriceComparisonProvider } from './core/crawler/provider/cra
       }),
       inject: [ConfigService],
     }),
+    RabbitMQModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => ({
+        urls: [configService.get<string>('RABBITMQ_URL')],
+      }),
+    }),
     ConfigModule,
     RedisModule,
     PlaywrightModule,
-    RabbitMQModule,
   ],
   controllers: [CoupangMessageController],
   providers: [
