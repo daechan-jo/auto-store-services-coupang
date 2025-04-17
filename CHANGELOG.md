@@ -1,3 +1,10 @@
+# [1.2.0](https://github.com/hush-mart/coupang/compare/v1.1.0...v1.2.0) (2025-04-17)
+
+
+### Features
+
+* update environment configuration and add deployment workflow ([dbd9b8b](https://github.com/hush-mart/coupang/commit/dbd9b8bcba333e9bae6c41efc17e046df24d22c8))
+
 # [1.1.0](https://github.com/daechan-jo/auto-store-services-coupang/compare/v1.0.3...v1.1.0) (2025-04-16)
 
 
