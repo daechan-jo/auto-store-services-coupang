@@ -11,14 +11,11 @@ import { AppConfig } from './config/app.config';
 import { ValidationPipe } from '@nestjs/common';
 
 const isDev = process.env.NODE_ENV !== 'PROD';
-
-if (isDev) {
-  dotenv.config({
-    path: '/Users/daechanjo/codes/project/auto-store/.env',
-  });
-} else {
-  dotenv.config();
-}
+isDev
+  ? dotenv.config({
+      path: '/Users/daechanjo/codes/project/auto-store/.env',
+    })
+  : dotenv.config({ path: '/app/.env' });
 
 async function bootstrap() {
   const appConfig = AppConfig.getInstance();
